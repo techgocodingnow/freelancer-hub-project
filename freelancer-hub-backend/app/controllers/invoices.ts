@@ -51,8 +51,7 @@ export default class InvoicesController {
     query.orderBy(sort, order)
 
     const invoices = await query.paginate(page, perPage)
-
-    return response.header('x-total-count', invoices.total).ok(invoices.all())
+    return response.ok(invoices.serialize())
   }
 
   /**

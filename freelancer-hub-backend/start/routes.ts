@@ -24,6 +24,7 @@ const InvoicesController = () => import('#controllers/invoices')
 const PaymentsController = () => import('#controllers/payments')
 const PayrollController = () => import('#controllers/payroll')
 const WiseAccountsController = () => import('#controllers/wise_accounts')
+const TimesheetsController = () => import('#controllers/timesheets')
 
 // Health check (outside API versioning for monitoring)
 router.get('/', async () => {
@@ -92,6 +93,19 @@ router
 
         // Active timer (global endpoint)
         router.get('/time-entries/active', [TimeEntriesController, 'active'])
+
+        // Timesheets
+        router.get('/timesheets', [TimesheetsController, 'index'])
+        router.get('/timesheets/summary', [TimesheetsController, 'summary'])
+        router.get('/timesheets/:id', [TimesheetsController, 'show'])
+        router.post('/timesheets', [TimesheetsController, 'store'])
+        router.put('/timesheets/:id', [TimesheetsController, 'update'])
+        router.patch('/timesheets/:id', [TimesheetsController, 'update'])
+        router.delete('/timesheets/:id', [TimesheetsController, 'destroy'])
+        router.post('/timesheets/:id/submit', [TimesheetsController, 'submit'])
+        router.post('/timesheets/:id/approve', [TimesheetsController, 'approve'])
+        router.post('/timesheets/:id/reject', [TimesheetsController, 'reject'])
+        router.post('/timesheets/:id/reopen', [TimesheetsController, 'reopen'])
 
         // Reports
         router.get('/reports/time-summary', [ReportsController, 'timeSummary'])

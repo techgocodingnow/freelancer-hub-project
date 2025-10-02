@@ -44,7 +44,7 @@ export default class UsersController {
     // Paginate results
     const tenantUsers = await query.paginate(page, limit)
 
-    return response.header('x-total-count', tenantUsers.total).ok({
+    return response.ok({
       data: tenantUsers.all().map((tu) => ({
         id: tu.user.id,
         fullName: tu.user.fullName,

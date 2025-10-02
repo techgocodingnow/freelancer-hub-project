@@ -302,7 +302,7 @@ export default class ReportsController {
       )
       .first()
 
-    return response.header('x-total-count', timeEntries.total).ok({
+    return response.ok({
       data: timeEntries.all(),
       summary: {
         totalHours: Number.parseFloat(((summary?.total_minutes || 0) / 60).toFixed(2)),

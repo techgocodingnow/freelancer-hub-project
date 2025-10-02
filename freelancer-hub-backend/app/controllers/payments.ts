@@ -43,7 +43,7 @@ export default class PaymentsController {
 
     const payments = await query.paginate(page, perPage)
 
-    return response.header('x-total-count', payments.total).ok(payments.all())
+    return response.ok(payments.serialize())
   }
 
   /**
@@ -154,4 +154,3 @@ export default class PaymentsController {
     return response.noContent()
   }
 }
-

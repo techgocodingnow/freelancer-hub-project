@@ -3,6 +3,7 @@ import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Task from '#models/task'
 import User from '#models/user'
+import Timesheet from '#models/timesheet'
 
 export default class TimeEntry extends BaseModel {
   @column({ isPrimary: true })
@@ -13,6 +14,9 @@ export default class TimeEntry extends BaseModel {
 
   @column()
   declare userId: number
+
+  @column()
+  declare timesheetId: number | null
 
   @column()
   declare description: string | null
@@ -28,6 +32,9 @@ export default class TimeEntry extends BaseModel {
 
   @column()
   declare billable: boolean
+
+  @column()
+  declare notes: string | null
 
   @column.date()
   declare date: DateTime
@@ -47,5 +54,7 @@ export default class TimeEntry extends BaseModel {
 
   @belongsTo(() => User)
   declare user: BelongsTo<typeof User>
-}
 
+  @belongsTo(() => Timesheet)
+  declare timesheet: BelongsTo<typeof Timesheet>
+}

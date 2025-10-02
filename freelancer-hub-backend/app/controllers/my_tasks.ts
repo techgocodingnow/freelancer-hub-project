@@ -12,7 +12,6 @@ export default class MyTasksController {
    */
   async index({ tenant, auth, request, response }: HttpContext) {
     const user = auth.getUserOrFail()
-
     const page = request.input('_start', 0) / request.input('_end', 10) + 1 || 1
     const perPage = request.input('_end', 10) - request.input('_start', 0) || 10
 
@@ -27,7 +26,7 @@ export default class MyTasksController {
       .preload('timeEntries')
 
     // Apply filter
-    const filter = request.input('filter', 'today_overdue')
+    const filter = request.input('filter')
 
     switch (filter) {
       case 'assigned':
@@ -40,9 +39,7 @@ export default class MyTasksController {
         query
           .where('assignee_id', user.id)
           .where((subQuery) => {
-            subQuery
-              .where('due_date', '<=', DateTime.now().toSQLDate())
-              .whereNotNull('due_date')
+            subQuery.where('due_date', '<=', DateTime.now().toSQLDate()).whereNotNull('due_date')
           })
           .whereNot('status', 'done')
           .whereNull('completed_at')
@@ -58,9 +55,7 @@ export default class MyTasksController {
         query
           .where('assignee_id', user.id)
           .where((subQuery) => {
-            subQuery
-              .where('due_date', '<=', DateTime.now().toSQLDate())
-              .whereNotNull('due_date')
+            subQuery.where('due_date', '<=', DateTime.now().toSQLDate()).whereNotNull('due_date')
           })
           .whereNot('status', 'done')
           .whereNull('completed_at')
@@ -99,6 +94,7 @@ export default class MyTasksController {
       .whereNot('status', 'done')
       .whereNull('completed_at')
       .count('* as total')
+    console.log('🚀 ~ MyTasksController ~ index ~ todayCount:', todayCount)
 
     const overdueCount = await Task.query()
       .whereHas('project', (projectQuery) => {
@@ -109,20 +105,18 @@ export default class MyTasksController {
       .whereNot('status', 'done')
       .whereNull('completed_at')
       .count('* as total')
+    console.log('🚀 ~ MyTasksController ~ index ~ overdueCount:', overdueCount)
 
-    return response
-      .header('x-total-count', tasks.total)
-      .ok({
-        data: tasks.all(),
-        meta: {
-          total: tasks.total,
-          perPage: tasks.perPage,
-          currentPage: tasks.currentPage,
-          lastPage: tasks.lastPage,
-          todayCount: Number(todayCount[0].$extras.total),
-          overdueCount: Number(overdueCount[0].$extras.total),
-        },
-      })
+    const result = tasks.serialize()
+    console.log('🚀 ~ MyTasksController ~ index ~ result:', result)
+    return response.ok({
+      ...result,
+      meta: {
+        ...result.meta,
+        todayCount: Number(todayCount[0].$extras.total),
+        overdueCount: Number(overdueCount[0].$extras.total),
+      },
+    })
   }
 
   /**
@@ -188,4 +182,3 @@ export default class MyTasksController {
     })
   }
 }
-

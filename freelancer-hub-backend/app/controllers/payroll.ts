@@ -43,7 +43,7 @@ export default class PayrollController {
 
     const batches = await query.paginate(page, perPage)
 
-    return response.header('x-total-count', batches.total).ok(batches.all())
+    return response.ok(batches.serialize())
   }
 
   /**
@@ -200,9 +200,7 @@ export default class PayrollController {
 
     // In a real implementation, this would trigger payment processing
     // For now, we'll just mark payments as completed
-    await Payment.query()
-      .where('payroll_batch_id', batch.id)
-      .update({ status: 'completed' })
+    await Payment.query().where('payroll_batch_id', batch.id).update({ status: 'completed' })
 
     // Update batch to completed
     batch.status = 'completed'
@@ -288,4 +286,3 @@ export default class PayrollController {
     return invoice
   }
 }
-

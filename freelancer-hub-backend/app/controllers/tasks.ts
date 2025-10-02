@@ -55,7 +55,15 @@ export default class TasksController {
 
     const tasks = await query.paginate(page, perPage)
 
-    return response.header('x-total-count', tasks.total).ok(tasks.all())
+    const result = tasks.serialize()
+    return response.ok({
+      ...result,
+      meta: {
+        ...result.meta,
+        overdueCount: 0,
+        todayCount: 0,
+      },
+    })
   }
 
   /**

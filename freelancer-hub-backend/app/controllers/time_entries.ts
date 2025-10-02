@@ -55,7 +55,7 @@ export default class TimeEntriesController {
 
     const timeEntries = await query.paginate(page, perPage)
 
-    return response.header('x-total-count', timeEntries.total).ok(timeEntries.all())
+    return response.ok(timeEntries.serialize())
   }
 
   /**

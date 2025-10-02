@@ -39,7 +39,7 @@ export default class ProjectsController {
       })
     )
 
-    return response.header('x-total-count', projects.total).ok(projects.all())
+    return response.ok(projects.serialize())
   }
 
   /**
@@ -72,10 +72,8 @@ export default class ProjectsController {
     }
 
     return response.ok({
-      data: {
-        ...project.toJSON(),
-        taskStats,
-      },
+      ...project.toJSON(),
+      taskStats,
     })
   }
 
@@ -199,7 +197,7 @@ export default class ProjectsController {
       .preload('user')
       .orderBy('joined_at', 'asc')
 
-    return response.header('x-total-count', members.length).ok(members)
+    return response.ok({ data: members })
   }
 
   /**
