@@ -55,16 +55,21 @@ export const TimesheetsCreate: React.FC = () => {
       },
       {
         onSuccess: (data) => {
-          message.success("Timesheet created successfully");
+          message.open({
+            type: "success",
+            content: "Timesheet created successfully",
+          });
           go({
             to: `/tenants/${tenantSlug}/timesheets/${data.data.data.id}/edit`,
             type: "push",
           });
         },
         onError: (error: any) => {
-          message.error(
-            error?.response?.data?.error || "Failed to create timesheet"
-          );
+          message.open({
+            type: "error",
+            content:
+              error?.response?.data?.error || "Failed to create timesheet",
+          });
         },
       }
     );
@@ -167,4 +172,3 @@ export const TimesheetsCreate: React.FC = () => {
     </ResponsiveContainer>
   );
 };
-

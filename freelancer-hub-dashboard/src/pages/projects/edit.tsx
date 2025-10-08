@@ -68,14 +68,20 @@ export const ProjectEdit: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.success("Project updated successfully");
+          message.open({
+            type: "success",
+            content: "Project updated successfully",
+          });
           go({
             to: `/tenants/${tenantSlug}/projects/${id}/show`,
             type: "push",
           });
         },
         onError: (error: any) => {
-          message.error(error?.message || "Failed to update project");
+          message.open({
+            type: "error",
+            content: error?.message || "Failed to update project",
+          });
         },
       }
     );

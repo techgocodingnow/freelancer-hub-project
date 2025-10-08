@@ -268,4 +268,39 @@ export default class UsersController {
       data: roles,
     })
   }
+
+  /**
+   * Search organization members for autocomplete
+   */
+  async search({ tenant, request, response }: HttpContext) {
+    const query = request.input('q', '')
+    const limit = request.input('limit', 10)
+
+    if (!query || query.length < 2) {
+      return response.ok({ data: [] })
+    }
+
+    // Search tenant users by name or email
+    const tenantUsers = await TenantUser.query()
+      .where('tenant_id', tenant.id)
+      .where('is_active', true)
+      .preload('user')
+      .preload('role')
+      .whereHas('user', (userQuery) => {
+        userQuery.where((builder) => {
+          builder.whereILike('full_name', `%${query}%`).orWhereILike('email', `%${query}%`)
+        })
+      })
+      .limit(limit)
+
+    const users = tenantUsers.map((tu) => ({
+      id: tu.user.id,
+      fullName: tu.user.fullName,
+      email: tu.user.email,
+      role: tu.role.name,
+      roleId: tu.roleId,
+    }))
+
+    return response.ok({ data: users })
+  }
 }

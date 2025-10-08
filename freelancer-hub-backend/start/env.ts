@@ -28,4 +28,13 @@ export default await Env.create(new URL('../', import.meta.url), {
   DB_USER: Env.schema.string(),
   DB_PASSWORD: Env.schema.string.optional(),
   DB_DATABASE: Env.schema.string(),
+
+  /*
+  |----------------------------------------------------------
+  | Variables for configuring Electric SQL
+  |----------------------------------------------------------
+  */
+  ELECTRIC_URL: Env.schema.string.optional(),
+  ELECTRIC_SOURCE_ID: Env.schema.string.optional(),
+  ELECTRIC_SOURCE_SECRET: Env.schema.string.optional(),
 })

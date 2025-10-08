@@ -1,7 +1,10 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import TimeEntry from '#models/time_entry'
 import Task from '#models/task'
+import Project from '#models/project'
+import TenantUser from '#models/tenant_user'
 import { DateTime } from 'luxon'
+import db from '@adonisjs/lucid/services/db'
 import {
   createTimeEntryValidator,
   updateTimeEntryValidator,
@@ -10,9 +13,26 @@ import {
 
 export default class TimeEntriesController {
   /**
-   * List all time entries for a task
+   * List time entries
+   *
+   * If taskId param is provided: List entries for a specific task
+   * If no taskId param: List all entries with filtering (global view)
    */
-  async index({ tenant, params, request, response }: HttpContext) {
+  async index(ctx: HttpContext) {
+    // Check if this is a task-scoped request or global request
+    const isTaskScoped = !!ctx.params.taskId
+
+    if (isTaskScoped) {
+      return this.indexForTask(ctx)
+    } else {
+      return this.indexGlobal(ctx)
+    }
+  }
+
+  /**
+   * List all time entries for a specific task (task-scoped)
+   */
+  private async indexForTask({ tenant, params, request, response }: HttpContext) {
     // Verify task belongs to tenant (through project)
     const task = await Task.query()
       .where('id', params.taskId)
@@ -59,26 +79,243 @@ export default class TimeEntriesController {
   }
 
   /**
-   * Create a new time entry
+   * List all time entries with filtering (global view)
+   * Supports daily/weekly grouping and comprehensive filtering
    */
-  async store({ tenant, auth, params, request, response }: HttpContext) {
-    // Verify task belongs to tenant
-    const task = await Task.query()
-      .where('id', params.taskId)
-      .preload('project', (query) => {
-        query.where('tenant_id', tenant.id)
-      })
-      .first()
+  private async indexGlobal({ tenant, auth, request, response }: HttpContext) {
+    const user = auth.getUserOrFail()
 
-    if (!task || !task.project) {
-      return response.notFound({ error: 'Task not found' })
+    const page = request.input('_start', 0) / request.input('_end', 50) + 1 || 1
+    const perPage = request.input('_end', 50) - request.input('_start', 0) || 50
+
+    // Check if user is admin/owner
+    const tenantUser = await TenantUser.query()
+      .where('tenant_id', tenant.id)
+      .where('user_id', user.id)
+      .preload('role')
+      .firstOrFail()
+
+    const isAdmin = ['admin', 'owner'].includes(tenantUser.role.name)
+
+    // Build base query
+    const query = TimeEntry.query()
+      .join('tasks', 'time_entries.task_id', 'tasks.id')
+      .join('projects', 'tasks.project_id', 'projects.id')
+      .where('projects.tenant_id', tenant.id)
+      .preload('user')
+      .preload('task', (taskQuery) => {
+        taskQuery.preload('project')
+      })
+
+    // Filters
+    const viewMode = request.input('view_mode', 'daily')
+    const projectId = request.input('project_id')
+    const userId = request.input('user_id')
+    const startDate = request.input('start_date')
+    const endDate = request.input('end_date')
+    const billable = request.input('billable')
+
+    // Non-admins can only see their own entries
+    if (!isAdmin) {
+      query.where('time_entries.user_id', user.id)
+    } else if (userId) {
+      query.where('time_entries.user_id', userId)
     }
 
+    if (projectId) {
+      query.where('projects.id', projectId)
+    }
+
+    if (startDate) {
+      query.where('time_entries.date', '>=', startDate)
+    }
+
+    if (endDate) {
+      query.where('time_entries.date', '<=', endDate)
+    }
+
+    if (billable !== undefined && billable !== null) {
+      query.where('time_entries.billable', billable === 'true' || billable === true)
+    }
+
+    // Sorting
+    const sort = request.input('_sort', 'date')
+    const order = request.input('_order', 'DESC')
+    query.orderBy(`time_entries.${sort}`, order)
+
+    const timeEntries = await query.paginate(page, perPage)
+
+    // Calculate aggregated data
+    const summaryQuery = db
+      .from('time_entries')
+      .join('tasks', 'time_entries.task_id', 'tasks.id')
+      .join('projects', 'tasks.project_id', 'projects.id')
+      .where('projects.tenant_id', tenant.id)
+
+    if (!isAdmin) {
+      summaryQuery.where('time_entries.user_id', user.id)
+    } else if (userId) {
+      summaryQuery.where('time_entries.user_id', userId)
+    }
+
+    if (projectId) {
+      summaryQuery.where('projects.id', projectId)
+    }
+
+    if (startDate) {
+      summaryQuery.where('time_entries.date', '>=', startDate)
+    }
+
+    if (endDate) {
+      summaryQuery.where('time_entries.date', '<=', endDate)
+    }
+
+    if (billable !== undefined && billable !== null) {
+      summaryQuery.where('time_entries.billable', billable === 'true' || billable === true)
+    }
+
+    const summary = await summaryQuery
+      .select(
+        db.raw('SUM(duration_minutes) as total_minutes'),
+        db.raw(
+          'SUM(CASE WHEN billable = true THEN duration_minutes ELSE 0 END) as billable_minutes'
+        ),
+        db.raw(
+          'SUM(CASE WHEN billable = false THEN duration_minutes ELSE 0 END) as non_billable_minutes'
+        ),
+        db.raw('COUNT(*) as entry_count')
+      )
+      .first()
+
+    // Get breakdown by project
+    const projectBreakdown = await summaryQuery
+      .clone()
+      .select(
+        'projects.id as project_id',
+        'projects.name as project_name',
+        db.raw('SUM(time_entries.duration_minutes) as total_minutes')
+      )
+      .groupBy('projects.id', 'projects.name')
+      .orderBy('total_minutes', 'desc')
+
+    // Get breakdown by day or week based on view mode
+    let timeBreakdown
+    if (viewMode === 'weekly') {
+      timeBreakdown = await summaryQuery
+        .clone()
+        .select(
+          db.raw("DATE_TRUNC('week', time_entries.date) as period"),
+          db.raw('SUM(time_entries.duration_minutes) as total_minutes'),
+          db.raw(
+            'SUM(CASE WHEN time_entries.billable = true THEN time_entries.duration_minutes ELSE 0 END) as billable_minutes'
+          )
+        )
+        .groupByRaw("DATE_TRUNC('week', time_entries.date)")
+        .orderBy('period', 'desc')
+    } else {
+      timeBreakdown = await summaryQuery
+        .clone()
+        .select(
+          'time_entries.date as period',
+          db.raw('SUM(time_entries.duration_minutes) as total_minutes'),
+          db.raw(
+            'SUM(CASE WHEN time_entries.billable = true THEN time_entries.duration_minutes ELSE 0 END) as billable_minutes'
+          )
+        )
+        .groupBy('time_entries.date')
+        .orderBy('period', 'desc')
+    }
+
+    return response.ok({
+      data: timeEntries.all(),
+      meta: {
+        total: timeEntries.total,
+        perPage: timeEntries.perPage,
+        currentPage: timeEntries.currentPage,
+        lastPage: timeEntries.lastPage,
+      },
+      summary: {
+        totalHours: Number.parseFloat(((summary?.total_minutes || 0) / 60).toFixed(2)),
+        billableHours: Number.parseFloat(((summary?.billable_minutes || 0) / 60).toFixed(2)),
+        nonBillableHours: Number.parseFloat(((summary?.non_billable_minutes || 0) / 60).toFixed(2)),
+        entryCount: Number.parseInt(summary?.entry_count || 0),
+      },
+      breakdown: {
+        byProject: projectBreakdown.map((row) => ({
+          projectId: row.project_id,
+          projectName: row.project_name,
+          totalHours: Number.parseFloat((row.total_minutes / 60).toFixed(2)),
+        })),
+        byTime: timeBreakdown.map((row) => ({
+          period: row.period,
+          totalHours: Number.parseFloat((row.total_minutes / 60).toFixed(2)),
+          billableHours: Number.parseFloat((row.billable_minutes / 60).toFixed(2)),
+        })),
+      },
+    })
+  }
+
+  /**
+   * Create a new time entry
+   * Supports both task-scoped (/tasks/:taskId/time-entries) and global (/time-entries) creation
+   */
+  async store({ tenant, auth, params, request, response }: HttpContext) {
     const user = auth.getUserOrFail()
+    const isTaskScoped = !!params.taskId
+
+    let taskId: number
+
+    if (isTaskScoped) {
+      // Task-scoped: taskId from URL params
+      const task = await Task.query()
+        .where('id', params.taskId)
+        .preload('project', (query) => {
+          query.where('tenant_id', tenant.id)
+        })
+        .first()
+
+      if (!task || !task.project) {
+        return response.notFound({ error: 'Task not found' })
+      }
+
+      taskId = task.id
+    } else {
+      // Global: taskId from request body (with validation)
+      const bodyData = request.only(['project_id', 'task_id'])
+
+      if (!bodyData.project_id || !bodyData.task_id) {
+        return response.badRequest({
+          error: 'project_id and task_id are required when creating time entry globally',
+        })
+      }
+
+      // Verify project belongs to tenant
+      const project = await Project.query()
+        .where('id', bodyData.project_id)
+        .where('tenant_id', tenant.id)
+        .first()
+
+      if (!project) {
+        return response.notFound({ error: 'Project not found' })
+      }
+
+      // Verify task belongs to project
+      const task = await Task.query()
+        .where('id', bodyData.task_id)
+        .where('project_id', project.id)
+        .first()
+
+      if (!task) {
+        return response.notFound({ error: 'Task not found in the specified project' })
+      }
+
+      taskId = task.id
+    }
+
     const data = await request.validateUsing(createTimeEntryValidator)
 
     const timeEntry = await TimeEntry.create({
-      taskId: task.id,
+      taskId,
       userId: user.id,
       description: data.description,
       startTime: data.startTime ? DateTime.fromISO(data.startTime) : null,
@@ -90,41 +327,71 @@ export default class TimeEntriesController {
     })
 
     // Update task actual hours
-    await this.updateTaskActualHours(task.id)
+    await this.updateTaskActualHours(taskId)
 
     await timeEntry.load('user')
+    await timeEntry.load('task', (taskQuery) => {
+      taskQuery.preload('project')
+    })
 
     return response.created({ data: timeEntry })
   }
 
   /**
    * Update a time entry
+   * Supports both task-scoped and global updates
    */
   async update({ tenant, auth, params, request, response }: HttpContext) {
-    // Verify task belongs to tenant
-    const task = await Task.query()
-      .where('id', params.taskId)
-      .preload('project', (query) => {
-        query.where('tenant_id', tenant.id)
-      })
-      .first()
+    const user = auth.getUserOrFail()
+    const isTaskScoped = !!params.taskId
 
-    if (!task || !task.project) {
-      return response.notFound({ error: 'Task not found' })
+    let timeEntry: TimeEntry | null
+
+    if (isTaskScoped) {
+      // Task-scoped: verify task belongs to tenant first
+      const task = await Task.query()
+        .where('id', params.taskId)
+        .preload('project', (query) => {
+          query.where('tenant_id', tenant.id)
+        })
+        .first()
+
+      if (!task || !task.project) {
+        return response.notFound({ error: 'Task not found' })
+      }
+
+      timeEntry = await TimeEntry.query().where('task_id', task.id).where('id', params.id).first()
+    } else {
+      // Global: verify time entry belongs to tenant through task->project relationship
+      timeEntry = await TimeEntry.query()
+        .where('id', params.id)
+        .preload('task', (taskQuery) => {
+          taskQuery.preload('project', (projectQuery) => {
+            projectQuery.where('tenant_id', tenant.id)
+          })
+        })
+        .first()
+
+      if (!timeEntry || !timeEntry.task?.project) {
+        return response.notFound({ error: 'Time entry not found' })
+      }
     }
-
-    const timeEntry = await TimeEntry.query()
-      .where('task_id', task.id)
-      .where('id', params.id)
-      .first()
 
     if (!timeEntry) {
       return response.notFound({ error: 'Time entry not found' })
     }
 
-    // Users can only edit their own time entries
-    const user = auth.getUserOrFail()
-    if (timeEntry.userId !== user.id) {
+    // Check if user is admin/owner
+    const tenantUser = await TenantUser.query()
+      .where('tenant_id', tenant.id)
+      .where('user_id', user.id)
+      .preload('role')
+      .firstOrFail()
+
+    const isAdmin = ['admin', 'owner'].includes(tenantUser.role.name)
+
+    // Users can only edit their own entries unless they're admins
+    if (!isAdmin && timeEntry.userId !== user.id) {
       return response.forbidden({ error: 'You can only edit your own time entries' })
     }
 
@@ -143,48 +410,80 @@ export default class TimeEntriesController {
     await timeEntry.save()
 
     // Update task actual hours
-    await this.updateTaskActualHours(task.id)
+    await this.updateTaskActualHours(timeEntry.taskId)
 
     await timeEntry.load('user')
+    await timeEntry.load('task', (taskQuery) => {
+      taskQuery.preload('project')
+    })
 
     return response.ok({ data: timeEntry })
   }
 
   /**
    * Delete a time entry
+   * Supports both task-scoped and global deletion
    */
   async destroy({ tenant, auth, params, response }: HttpContext) {
-    // Verify task belongs to tenant
-    const task = await Task.query()
-      .where('id', params.taskId)
-      .preload('project', (query) => {
-        query.where('tenant_id', tenant.id)
-      })
-      .first()
+    const user = auth.getUserOrFail()
+    const isTaskScoped = !!params.taskId
 
-    if (!task || !task.project) {
-      return response.notFound({ error: 'Task not found' })
+    let timeEntry: TimeEntry | null
+
+    if (isTaskScoped) {
+      // Task-scoped: verify task belongs to tenant first
+      const task = await Task.query()
+        .where('id', params.taskId)
+        .preload('project', (query) => {
+          query.where('tenant_id', tenant.id)
+        })
+        .first()
+
+      if (!task || !task.project) {
+        return response.notFound({ error: 'Task not found' })
+      }
+
+      timeEntry = await TimeEntry.query().where('task_id', task.id).where('id', params.id).first()
+    } else {
+      // Global: verify time entry belongs to tenant through task->project relationship
+      timeEntry = await TimeEntry.query()
+        .where('id', params.id)
+        .preload('task', (taskQuery) => {
+          taskQuery.preload('project', (projectQuery) => {
+            projectQuery.where('tenant_id', tenant.id)
+          })
+        })
+        .first()
+
+      if (!timeEntry || !timeEntry.task?.project) {
+        return response.notFound({ error: 'Time entry not found' })
+      }
     }
-
-    const timeEntry = await TimeEntry.query()
-      .where('task_id', task.id)
-      .where('id', params.id)
-      .first()
 
     if (!timeEntry) {
       return response.notFound({ error: 'Time entry not found' })
     }
 
-    // Users can only delete their own time entries
-    const user = auth.getUserOrFail()
-    if (timeEntry.userId !== user.id) {
+    // Check if user is admin/owner
+    const tenantUser = await TenantUser.query()
+      .where('tenant_id', tenant.id)
+      .where('user_id', user.id)
+      .preload('role')
+      .firstOrFail()
+
+    const isAdmin = ['admin', 'owner'].includes(tenantUser.role.name)
+
+    // Users can only delete their own entries unless they're admins
+    if (!isAdmin && timeEntry.userId !== user.id) {
       return response.forbidden({ error: 'You can only delete your own time entries' })
     }
+
+    const taskId = timeEntry.taskId
 
     await timeEntry.delete()
 
     // Update task actual hours
-    await this.updateTaskActualHours(task.id)
+    await this.updateTaskActualHours(taskId)
 
     return response.noContent()
   }

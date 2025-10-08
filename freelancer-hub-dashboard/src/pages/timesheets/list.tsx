@@ -142,10 +142,16 @@ export const TimesheetsList: React.FC = () => {
   const handleSubmit = async (id: number) => {
     try {
       // TODO: Implement submit API call
-      message.success("Timesheet submitted successfully");
+      message.open({
+        type: "success",
+        content: "Timesheet submitted successfully",
+      });
       refetch();
-    } catch (error) {
-      message.error("Failed to submit timesheet");
+    } catch {
+      message.open({
+        type: "error",
+        content: "Failed to submit timesheet",
+      });
     }
   };
 

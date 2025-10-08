@@ -11,6 +11,8 @@ import {
   Alert,
   Modal,
   message,
+  Button,
+  Tooltip,
 } from "antd";
 import {
   UserOutlined,
@@ -18,12 +20,22 @@ import {
   CrownOutlined,
   TeamOutlined,
   ExclamationCircleOutlined,
+  UserAddOutlined,
+  MailOutlined,
+  ClockCircleOutlined,
+  CloseCircleOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
 import { Api } from "../../services/api";
-import type { TenantUser, RoleName } from "../../services/api/types";
+import type {
+  TenantUser,
+  RoleName,
+  Invitation,
+} from "../../services/api/types";
 import { useGetIdentity } from "@refinedev/core";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { ResponsiveContainer } from "../../components/responsive";
+import { InviteMemberModal } from "../../components/invitations";
 
 const { Title } = Typography;
 const { confirm } = Modal;
@@ -31,10 +43,12 @@ const { confirm } = Modal;
 export const UserList: React.FC = () => {
   const { data: identity } = useGetIdentity();
   const [users, setUsers] = useState<TenantUser[]>([]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
   const [roleFilter, setRoleFilter] = useState<string | undefined>();
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 20,
@@ -69,8 +83,20 @@ export const UserList: React.FC = () => {
     }
   };
 
+  const fetchInvitations = async () => {
+    if (!isAdmin) return;
+
+    try {
+      const response = await Api.getInvitations({ status: "pending" });
+      setInvitations(response.data.data);
+    } catch (err: any) {
+      console.error("Failed to fetch invitations:", err);
+    }
+  };
+
   React.useEffect(() => {
     fetchUsers(pagination.current, pagination.pageSize);
+    fetchInvitations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchText, roleFilter]);
 
@@ -94,15 +120,66 @@ export const UserList: React.FC = () => {
       onOk: async () => {
         try {
           await Api.updateUserRole(userId, { role: newRole });
-          message.success("User role updated successfully");
+          message.open({
+            type: "success",
+            content: "User role updated successfully",
+          });
           fetchUsers(pagination.current, pagination.pageSize);
         } catch (err: any) {
-          message.error(
-            err?.response?.data?.error || "Failed to update user role"
-          );
+          message.open({
+            type: "error",
+            content: err?.response?.data?.error || "Failed to update user role",
+          });
         }
       },
     });
+  };
+
+  const handleResendInvitation = async (invitation: Invitation) => {
+    try {
+      await Api.resendInvitation(invitation.id);
+      message.open({
+        type: "success",
+        content: `Invitation resent to ${invitation.email}`,
+      });
+      fetchInvitations();
+    } catch (err: any) {
+      message.open({
+        type: "error",
+        content: err?.response?.data?.error || "Failed to resend invitation",
+      });
+    }
+  };
+
+  const handleCancelInvitation = (invitation: Invitation) => {
+    confirm({
+      title: "Cancel Invitation",
+      icon: <ExclamationCircleOutlined />,
+      content: `Are you sure you want to cancel the invitation for ${invitation.email}?`,
+      okText: "Yes",
+      okType: "danger",
+      cancelText: "No",
+      onOk: async () => {
+        try {
+          await Api.cancelInvitation(invitation.id);
+          message.open({
+            type: "success",
+            content: "Invitation cancelled",
+          });
+          fetchInvitations();
+        } catch (err: any) {
+          message.open({
+            type: "error",
+            content:
+              err?.response?.data?.error || "Failed to cancel invitation",
+          });
+        }
+      },
+    });
+  };
+
+  const handleInviteSuccess = () => {
+    fetchInvitations();
   };
 
   const columns = [
@@ -180,11 +257,23 @@ export const UserList: React.FC = () => {
           justifyContent: "space-between",
           alignItems: "center",
           marginBottom: isMobile ? "16px" : "24px",
+          flexWrap: "wrap",
+          gap: "16px",
         }}
       >
-        <Title level={isMobile ? 3 : 2}>
+        <Title level={isMobile ? 3 : 2} style={{ margin: 0 }}>
           <TeamOutlined /> Users
         </Title>
+        {isAdmin && (
+          <Button
+            type="primary"
+            icon={<UserAddOutlined />}
+            onClick={() => setShowInviteModal(true)}
+            size={isMobile ? "middle" : "large"}
+          >
+            Invite Member
+          </Button>
+        )}
       </div>
 
       {!isAdmin && (
@@ -238,6 +327,81 @@ export const UserList: React.FC = () => {
           </Space>
         </Space>
 
+        {/* Pending Invitations */}
+        {isAdmin && invitations.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <Typography.Title level={5}>
+              <MailOutlined /> Pending Invitations ({invitations.length})
+            </Typography.Title>
+            <Space direction="vertical" style={{ width: "100%" }} size="small">
+              {invitations.map((invitation) => (
+                <Card
+                  key={invitation.id}
+                  size="small"
+                  style={{ backgroundColor: "#fafafa" }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      gap: "8px",
+                    }}
+                  >
+                    <Space>
+                      <MailOutlined />
+                      <Typography.Text strong>
+                        {invitation.email}
+                      </Typography.Text>
+                      <Tag icon={<ClockCircleOutlined />} color="orange">
+                        Pending
+                      </Tag>
+                      {invitation.role && (
+                        <Tag color="blue">
+                          {invitation.role.name.toUpperCase()}
+                        </Tag>
+                      )}
+                      {invitation.project && (
+                        <Tag color="purple">{invitation.project.name}</Tag>
+                      )}
+                    </Space>
+                    <Space>
+                      <Tooltip title="Resend invitation">
+                        <Button
+                          size="small"
+                          icon={<ReloadOutlined />}
+                          onClick={() => handleResendInvitation(invitation)}
+                        >
+                          Resend
+                        </Button>
+                      </Tooltip>
+                      <Tooltip title="Cancel invitation">
+                        <Button
+                          size="small"
+                          danger
+                          icon={<CloseCircleOutlined />}
+                          onClick={() => handleCancelInvitation(invitation)}
+                        >
+                          Cancel
+                        </Button>
+                      </Tooltip>
+                    </Space>
+                  </div>
+                  <Typography.Text
+                    type="secondary"
+                    style={{ fontSize: 12, marginTop: 4, display: "block" }}
+                  >
+                    Invited by {invitation.inviter?.fullName || "Unknown"} •
+                    Expires{" "}
+                    {new Date(invitation.expiresAt).toLocaleDateString()}
+                  </Typography.Text>
+                </Card>
+              ))}
+            </Space>
+          </div>
+        )}
+
         <Table
           dataSource={users}
           columns={columns}
@@ -265,6 +429,13 @@ export const UserList: React.FC = () => {
           }}
         />
       </Card>
+
+      {/* Invite Member Modal */}
+      <InviteMemberModal
+        open={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        onSuccess={handleInviteSuccess}
+      />
     </ResponsiveContainer>
   );
 };

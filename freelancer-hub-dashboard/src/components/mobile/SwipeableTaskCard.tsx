@@ -62,7 +62,10 @@ export const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({
     e.stopPropagation();
     if (onComplete) {
       onComplete(task.id);
-      message.success("Task marked as complete");
+      message.open({
+        type: "success",
+        content: "Task marked as complete",
+      });
     }
     setIsRevealed(false);
     setSwipeOffset(0);
@@ -72,7 +75,10 @@ export const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({
     e.stopPropagation();
     if (onDelete) {
       onDelete(task.id);
-      message.success("Task deleted");
+      message.open({
+        type: "success",
+        content: "Task deleted",
+      });
     }
     setIsRevealed(false);
     setSwipeOffset(0);

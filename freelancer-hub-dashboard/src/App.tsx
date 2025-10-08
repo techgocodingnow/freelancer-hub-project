@@ -40,6 +40,11 @@ import {
   TimesheetsShow,
   TimesheetsApprovals,
 } from "./pages/timesheets";
+import {
+  TimeEntriesList,
+  TimeEntryCreate,
+  TimeEntryEdit,
+} from "./pages/time-entries";
 import { UserList } from "./pages/users";
 import {
   ReportsIndex,
@@ -58,15 +63,18 @@ import {
   FinancialDashboard,
 } from "./pages/financials";
 import { WiseAccountSetup } from "./pages/settings";
+import NotificationPreferences from "./pages/settings/NotificationPreferences";
 import { TimerWidget } from "./components/timer/TimerWidget";
 import { ForgotPassword } from "./pages/forgotPassword";
 import { Login } from "./pages/login";
 import { Register } from "./pages/register";
+import { InvitationRegister } from "./pages/register/invitation";
 import { CommandPalette } from "./components/CommandPalette";
 import { useCommandPalette } from "./hooks/useCommandPalette";
 import { MobileBottomNav } from "./components/mobile/MobileBottomNav";
 import { MobileFAB } from "./components/mobile/MobileFAB";
 import { Api } from "./services/api";
+import { ProjectInvitationBanner } from "./components/invitations";
 
 const API_URL = import.meta.env.VITE_API_BASE_URL;
 function App() {
@@ -122,6 +130,10 @@ function App() {
                       <Route path="/login" element={<Login />} />
                       <Route path="/register" element={<Register />} />
                       <Route
+                        path="/register/invitation/:token"
+                        element={<InvitationRegister />}
+                      />
+                      <Route
                         path="/forgot-password"
                         element={<ForgotPassword />}
                       />
@@ -140,11 +152,24 @@ function App() {
                             loadingComponent={<div>Loading tenant...</div>}
                           >
                             <ThemedLayout
+                              Title={() => (
+                                <div className="flex items-center gap-2">
+                                  <img
+                                    src="/logo.png"
+                                    alt="Freelancer Hub"
+                                    className="h-12 w-12"
+                                  />
+                                  <a className="text-sm font-bold" href="/">
+                                    Freelancer Hub
+                                  </a>
+                                </div>
+                              )}
                               Header={Header}
                               Sider={(props) => (
                                 <ThemedSider {...props} fixed />
                               )}
                             >
+                              <ProjectInvitationBanner />
                               <Outlet />
                               <TimerWidget />
                             </ThemedLayout>
@@ -184,6 +209,11 @@ function App() {
                         <Route path="create" element={<TimesheetsCreate />} />
                         <Route path=":id" element={<TimesheetsShow />} />
                         <Route path=":id/edit" element={<TimesheetsEdit />} />
+                      </Route>
+                      <Route path="time-entries">
+                        <Route index element={<TimeEntriesList />} />
+                        <Route path="create" element={<TimeEntryCreate />} />
+                        <Route path=":id/edit" element={<TimeEntryEdit />} />
                       </Route>
                       <Route path="users">
                         <Route index element={<UserList />} />
@@ -232,6 +262,10 @@ function App() {
                         <Route
                           path="wise-account"
                           element={<WiseAccountSetup />}
+                        />
+                        <Route
+                          path="notifications"
+                          element={<NotificationPreferences />}
                         />
                       </Route>
                       <Route path="*" element={<ErrorComponent />} />

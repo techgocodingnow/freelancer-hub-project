@@ -120,7 +120,10 @@ export const MyTasksList: React.FC = () => {
         // Find the task to get its project ID
         const task = tasks.find((t) => t.id === id);
         if (!task?.project?.id) {
-          message.error("Cannot delete task: project information missing");
+          message.open({
+            type: "error",
+            content: "Cannot delete task: project information missing",
+          });
           return;
         }
 
@@ -131,11 +134,17 @@ export const MyTasksList: React.FC = () => {
           },
           {
             onSuccess: () => {
-              message.success("Task deleted successfully");
+              message.open({
+                type: "success",
+                content: "Task deleted successfully",
+              });
               refetch();
             },
             onError: () => {
-              message.error("Failed to delete task");
+              message.open({
+                type: "error",
+                content: "Failed to delete task",
+              });
             },
           }
         );

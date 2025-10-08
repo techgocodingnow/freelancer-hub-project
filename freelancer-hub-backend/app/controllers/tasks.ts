@@ -9,6 +9,7 @@ import {
   updateTaskStatusValidator,
   assignTaskValidator,
 } from '#validators/tasks'
+import NotificationService from '#services/notification_service'
 
 export default class TasksController {
   /**
@@ -158,6 +159,17 @@ export default class TasksController {
 
     await task.load('assignee')
     await task.load('creator')
+    await task.load('project')
+
+    // Create notification if task is assigned to someone during creation
+    if (data.assigneeId && data.assigneeId !== user.id) {
+      try {
+        await NotificationService.notifyTaskAssignment(task, data.assigneeId, user, tenant.id)
+      } catch (error) {
+        // Log error but don't fail the request
+        console.error('Failed to create task assignment notification:', error)
+      }
+    }
 
     return response.created({ data: task })
   }
@@ -195,6 +207,11 @@ export default class TasksController {
 
     const data = await request.validateUsing(updateTaskValidator)
 
+    // Track if assigneeId is changing for notification
+    const previousAssigneeId = task.assigneeId
+    const isAssigneeChanging =
+      data.assigneeId !== undefined && data.assigneeId !== previousAssigneeId
+
     // Update fields individually to handle DateTime conversion
     if (data.title !== undefined) task.title = data.title
     if (data.description !== undefined) task.description = data.description
@@ -219,6 +236,27 @@ export default class TasksController {
 
     await task.load('assignee')
     await task.load('creator')
+    await task.load('project')
+
+    // Create notification if assignee changed
+    if (isAssigneeChanging && data.assigneeId && data.assigneeId !== user.id) {
+      try {
+        await NotificationService.notifyTaskAssignment(task, data.assigneeId, user, tenant.id)
+      } catch (error) {
+        // Log error but don't fail the request
+        console.error('Failed to create task assignment notification:', error)
+      }
+    }
+
+    // Create notification if task was completed
+    if (data.status === 'done' && task.status === 'done' && task.createdBy !== user.id) {
+      try {
+        await NotificationService.notifyTaskCompletion(task, user, tenant.id)
+      } catch (error) {
+        // Log error but don't fail the request
+        console.error('Failed to create task completion notification:', error)
+      }
+    }
 
     return response.ok({ data: task })
   }
@@ -342,9 +380,23 @@ export default class TasksController {
 
     const data = await request.validateUsing(assignTaskValidator)
 
+    // Track previous assignee for notification
+    const previousAssigneeId = task.assigneeId
+
     task.assigneeId = data.assigneeId
     await task.save()
     await task.load('assignee')
+    await task.load('project')
+
+    // Create notification if assignee changed and not assigning to self
+    if (data.assigneeId !== previousAssigneeId && data.assigneeId && data.assigneeId !== user.id) {
+      try {
+        await NotificationService.notifyTaskAssignment(task, data.assigneeId, user, tenant.id)
+      } catch (error) {
+        // Log error but don't fail the request
+        console.error('Failed to create task assignment notification:', error)
+      }
+    }
 
     return response.ok({ data: task })
   }

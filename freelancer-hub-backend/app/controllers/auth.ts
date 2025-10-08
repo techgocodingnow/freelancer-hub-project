@@ -3,6 +3,8 @@ import User from '#models/user'
 import Tenant from '#models/tenant'
 import TenantUser from '#models/tenant_user'
 import Role from '#models/role'
+import Invitation from '#models/invitation'
+import ProjectMember from '#models/project_member'
 import db from '@adonisjs/lucid/services/db'
 import { registerValidator, loginValidator } from '#validators/auth'
 import { DateTime } from 'luxon'
@@ -22,15 +24,53 @@ export default class AuthController {
       })
     }
 
+    // Check for invitation token
+    let invitation: Invitation | null = null
+    if (data.invitationToken) {
+      invitation = await Invitation.query()
+        .where('token', data.invitationToken)
+        .preload('tenant')
+        .preload('role')
+        .preload('project')
+        .first()
+
+      if (!invitation) {
+        return response.notFound({
+          error: 'Invalid invitation token',
+        })
+      }
+
+      if (!invitation.canBeAccepted()) {
+        const reason = invitation.isExpired() ? 'expired' : 'already used or cancelled'
+        return response.badRequest({
+          error: `This invitation has ${reason}`,
+        })
+      }
+
+      // Verify email matches invitation
+      if (invitation.email.toLowerCase() !== data.email.toLowerCase()) {
+        return response.badRequest({
+          error: 'Email does not match invitation',
+        })
+      }
+    }
+
     // Use transaction to ensure atomicity
     const trx = await db.transaction()
 
     try {
       let tenant: Tenant
       let isNewTenant = false
+      let roleId: number
 
-      // Scenario 1: User joins existing tenant
-      if (data.tenantId) {
+      // Scenario 1: Registration via invitation
+      if (invitation) {
+        tenant = invitation.tenant
+        roleId = invitation.roleId
+        isNewTenant = false
+      }
+      // Scenario 2: User joins existing tenant
+      else if (data.tenantId) {
         const existingTenant = await Tenant.find(data.tenantId)
         if (!existingTenant || !existingTenant.isActive) {
           await trx.rollback()
@@ -39,8 +79,10 @@ export default class AuthController {
           })
         }
         tenant = existingTenant
+        const role = await Role.query().where('name', 'member').firstOrFail()
+        roleId = role.id
       }
-      // Scenario 2: User creates new tenant
+      // Scenario 3: User creates new tenant
       else if (data.tenantName && data.tenantSlug) {
         // Check if tenant slug already exists
         const existingTenant = await Tenant.query().where('slug', data.tenantSlug).first()
@@ -60,14 +102,17 @@ export default class AuthController {
           { client: trx }
         )
         isNewTenant = true
+        const role = await Role.query().where('name', 'owner').firstOrFail()
+        roleId = role.id
       } else {
         await trx.rollback()
         return response.badRequest({
-          error: 'Either tenantId or both tenantName and tenantSlug must be provided',
+          error:
+            'Either invitationToken, tenantId, or both tenantName and tenantSlug must be provided',
         })
       }
 
-      // Create user (without tenant_id and role - those are in pivot table now)
+      // Create user
       const user = await User.create(
         {
           email: data.email,
@@ -77,22 +122,35 @@ export default class AuthController {
         { client: trx }
       )
 
-      // Get the appropriate role
-      // If creating new tenant, user becomes owner; otherwise member
-      const roleName = isNewTenant ? 'owner' : 'member'
-      const role = await Role.query().where('name', roleName).firstOrFail()
-
       // Create tenant-user relationship
       await TenantUser.create(
         {
           userId: user.id,
           tenantId: tenant.id,
-          roleId: role.id,
+          roleId: roleId,
           isActive: true,
           joinedAt: DateTime.now(),
         },
         { client: trx }
       )
+
+      // If invitation includes a project, add user to project
+      if (invitation && invitation.projectId) {
+        await ProjectMember.create(
+          {
+            projectId: invitation.projectId,
+            userId: user.id,
+            role: invitation.role.name as 'owner' | 'admin' | 'member' | 'viewer',
+            joinedAt: DateTime.now(),
+          },
+          { client: trx }
+        )
+      }
+
+      // Mark invitation as accepted
+      if (invitation) {
+        await invitation.accept(user.id)
+      }
 
       await trx.commit()
 

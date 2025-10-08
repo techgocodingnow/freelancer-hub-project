@@ -128,11 +128,17 @@ export const InvoiceManagement: React.FC = () => {
           },
           {
             onSuccess: () => {
-              message.success("Invoice sent successfully");
+              message.open({
+                type: "success",
+                content: "Invoice sent successfully",
+              });
               refetch();
             },
             onError: () => {
-              message.error("Failed to send invoice");
+              message.open({
+                type: "error",
+                content: "Failed to send invoice",
+              });
             },
           }
         );
@@ -152,7 +158,10 @@ export const InvoiceManagement: React.FC = () => {
       },
       {
         onSuccess: (data: any) => {
-          message.success("PDF generated successfully");
+          message.open({
+            type: "success",
+            content: "PDF generated successfully",
+          });
           // Open PDF in new tab
           if (data.data.pdfUrl) {
             window.open(data.data.pdfUrl, "_blank");
@@ -160,7 +169,10 @@ export const InvoiceManagement: React.FC = () => {
           refetch();
         },
         onError: () => {
-          message.error("Failed to generate PDF");
+          message.open({
+            type: "error",
+            content: "Failed to generate PDF",
+          });
         },
       }
     );
@@ -181,11 +193,17 @@ export const InvoiceManagement: React.FC = () => {
           },
           {
             onSuccess: () => {
-              message.success("Invoice deleted successfully");
+              message.open({
+                type: "success",
+                content: "Invoice deleted successfully",
+              });
               refetch();
             },
             onError: () => {
-              message.error("Failed to delete invoice");
+              message.open({
+                type: "error",
+                content: "Failed to delete invoice",
+              });
             },
           }
         );

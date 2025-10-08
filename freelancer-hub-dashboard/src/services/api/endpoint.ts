@@ -43,9 +43,35 @@ const ENDPOINTS = {
     updateRole: "/users/:userId/role",
     invite: "/users/invite",
     remove: "/users/:userId",
+    search: "/users/search",
   },
   roles: {
     list: "/roles",
+  },
+  invitations: {
+    list: "/invitations",
+    create: "/invitations",
+    resend: "/invitations/:invitationId/resend",
+    cancel: "/invitations/:invitationId",
+    validate: "/invitations/validate/:token",
+    myInvitations: "/invitations/my-invitations",
+    accept: "/invitations/:invitationId/accept",
+    reject: "/invitations/:invitationId/reject",
+  },
+  notifications: {
+    list: "/notifications",
+    unreadCount: "/notifications/unread-count",
+    one: "/notifications/:notificationId",
+    markAsRead: "/notifications/:notificationId/read",
+    markAllAsRead: "/notifications/mark-all-read",
+    delete: "/notifications/:notificationId",
+  },
+  notificationPreferences: {
+    list: "/notification-preferences",
+    defaults: "/notification-preferences/defaults",
+    update: "/notification-preferences/:type",
+    muteAll: "/notification-preferences/mute/all",
+    unmuteAll: "/notification-preferences/unmute/all",
   },
 };
 

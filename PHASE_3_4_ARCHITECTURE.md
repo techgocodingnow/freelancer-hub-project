@@ -315,17 +315,17 @@ const { data } = useList<Task>({
 // Filter Conversion
 const toRefineFilters = (criteria: FilterCriteria): CrudFilters => {
   const filters: CrudFilters = [];
-  
+
   if (criteria.status?.length > 0) {
     filters.push({
-      field: 'status',
-      operator: 'in' as const,
+      field: "status",
+      operator: "in" as const,
       value: criteria.status,
     });
   }
-  
+
   // ... more conversions
-  
+
   return filters;
 };
 ```
@@ -349,23 +349,29 @@ xl: 1280px  // Extra large (desktop)
 
 ```typescript
 // Mobile-only components
-{isMobile && <MobileBottomNav />}
-{isMobile && <MobileFAB />}
+{
+  isMobile && <MobileBottomNav />;
+}
+{
+  isMobile && <MobileFAB />;
+}
 
 // Desktop-only features
-{!isMobile && (
-  <>
-    <Button icon={<FilterOutlined />}>Filters</Button>
-    <Button icon={<EyeOutlined />}>Views</Button>
-  </>
-)}
+{
+  !isMobile && (
+    <>
+      <Button icon={<FilterOutlined />}>Filters</Button>
+      <Button icon={<EyeOutlined />}>Views</Button>
+    </>
+  );
+}
 
 // Responsive props
 <Drawer
-  placement={isMobile ? 'bottom' : 'right'}
-  width={isMobile ? '100%' : 400}
-  height={isMobile ? '80%' : undefined}
-/>
+  placement={isMobile ? "bottom" : "right"}
+  width={isMobile ? "100%" : 400}
+  height={isMobile ? "80%" : undefined}
+/>;
 ```
 
 ---
@@ -376,10 +382,7 @@ xl: 1280px  // Extra large (desktop)
 
 ```typescript
 // Expensive computations
-const refineFilters = useMemo(
-  () => toRefineFilters(criteria),
-  [criteria]
-);
+const refineFilters = useMemo(() => toRefineFilters(criteria), [criteria]);
 
 const activeFilterCount = useMemo(() => {
   // Count active filters
@@ -390,17 +393,24 @@ const activeFilterCount = useMemo(() => {
 
 ```typescript
 // Prevent re-creation on every render
-const handleFilterChange = useCallback((newCriteria) => {
-  updateCriteria(newCriteria);
-}, [updateCriteria]);
+const handleFilterChange = useCallback(
+  (newCriteria) => {
+    updateCriteria(newCriteria);
+  },
+  [updateCriteria]
+);
 ```
 
 ### Conditional Loading
 
 ```typescript
 // Only render when needed
-{filterPanelOpen && <AdvancedFilterPanel />}
-{viewsPanelOpen && <SavedViewsPanel />}
+{
+  filterPanelOpen && <AdvancedFilterPanel />;
+}
+{
+  viewsPanelOpen && <SavedViewsPanel />;
+}
 ```
 
 ---
@@ -413,7 +423,7 @@ const handleFilterChange = useCallback((newCriteria) => {
 try {
   localStorage.setItem(key, JSON.stringify(data));
 } catch (error) {
-  console.error('Failed to save to localStorage:', error);
+  console.error("Failed to save to localStorage:", error);
   // Fallback: Use in-memory storage
 }
 ```
@@ -430,9 +440,9 @@ const data = stored ? JSON.parse(stored) : []; // Default to empty array
 
 ```typescript
 const loadView = (viewId: string) => {
-  const view = views.find(v => v.id === viewId);
+  const view = views.find((v) => v.id === viewId);
   if (!view) {
-    console.warn('View not found:', viewId);
+    console.warn("View not found:", viewId);
     return null;
   }
   return view;
@@ -454,9 +464,11 @@ const loadView = (viewId: string) => {
 
 ```typescript
 // Validate filter criteria
-if (criteria.estimatedHoursMin !== undefined && 
-    criteria.estimatedHoursMin < 0) {
-  console.warn('Invalid hours value');
+if (
+  criteria.estimatedHoursMin !== undefined &&
+  criteria.estimatedHoursMin < 0
+) {
+  console.warn("Invalid hours value");
   return;
 }
 ```
@@ -469,8 +481,8 @@ if (criteria.estimatedHoursMin !== undefined &&
 
 ```typescript
 // Test hooks in isolation
-describe('useAdvancedFilters', () => {
-  it('should convert criteria to Refine filters', () => {
+describe("useAdvancedFilters", () => {
+  it("should convert criteria to Refine filters", () => {
     // Test implementation
   });
 });
@@ -480,8 +492,8 @@ describe('useAdvancedFilters', () => {
 
 ```typescript
 // Test component integration
-describe('AdvancedFilterPanel', () => {
-  it('should apply filters when clicking Apply', () => {
+describe("AdvancedFilterPanel", () => {
+  it("should apply filters when clicking Apply", () => {
     // Test implementation
   });
 });
@@ -491,8 +503,8 @@ describe('AdvancedFilterPanel', () => {
 
 ```typescript
 // Test user workflows
-describe('Filter Workflow', () => {
-  it('should save and load filters', () => {
+describe("Filter Workflow", () => {
+  it("should save and load filters", () => {
     // Test implementation
   });
 });
@@ -521,7 +533,7 @@ dist/
 
 ```bash
 # Required
-VITE_API_BASE_URL=https://api.example.com
+VITE_API_URL=https://api.example.com
 
 # Optional
 VITE_ENABLE_MOBILE_FEATURES=true
@@ -553,10 +565,12 @@ VITE_ENABLE_ADVANCED_FILTERS=true
 ### Planned Improvements
 
 1. **Backend Sync**
+
    - Sync saved filters/views across devices
    - Cloud storage for favorites
 
 2. **Advanced Features**
+
    - Custom filter operators (AND/OR logic)
    - Filter templates
    - Shared views (team collaboration)
@@ -571,4 +585,3 @@ VITE_ENABLE_ADVANCED_FILTERS=true
 **Last Updated:** 2025-09-30  
 **Version:** 1.0  
 **Status:** Production Ready
-

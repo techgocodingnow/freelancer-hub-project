@@ -62,12 +62,13 @@ export const RefineWithTenant: React.FC<
         },
       },
       {
-        name: "timesheets/time-entries",
-        list: `/tenants/${slug}/timesheets/time-entries`,
+        name: "time-entries",
+        list: `/tenants/${slug}/time-entries`,
+        create: `/tenants/${slug}/time-entries/create`,
+        edit: `/tenants/${slug}/time-entries/:id/edit`,
         meta: {
           label: "Time Entries",
-          parent: "timesheets",
-          canDelete: false,
+          canDelete: true,
           icon: <CheckSquareOutlined />,
         },
       },

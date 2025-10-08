@@ -135,11 +135,17 @@ export const TaskKanban: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.success("Task status updated");
+          message.open({
+            type: "success",
+            content: "Task status updated",
+          });
           refetch();
         },
         onError: (error: any) => {
-          message.error(error?.message || "Failed to update task");
+          message.open({
+            type: "error",
+            content: error?.message || "Failed to update task",
+          });
         },
       }
     );

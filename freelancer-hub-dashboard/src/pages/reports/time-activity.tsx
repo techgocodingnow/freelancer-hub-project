@@ -56,12 +56,17 @@ export const TimeActivityReport: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState<number | undefined>();
   const [billableFilter, setBillableFilter] = useState<string | undefined>();
 
-  // Fetch time entries
+  // Fetch time entries using the new global endpoint
   const {
     query: { data: timeEntriesData, isLoading },
   } = useList({
-    resource: "reports/time-activity",
+    resource: "time-entries",
     filters: [
+      {
+        field: "view_mode",
+        operator: "eq",
+        value: "daily",
+      },
       {
         field: "start_date",
         operator: "eq",
@@ -115,39 +120,32 @@ export const TimeActivityReport: React.FC = () => {
     pagination: { pageSize: 100 },
   });
 
-  const timeEntries = (timeEntriesData as any)?.data?.data || [];
-  const summary = (timeEntriesData as any)?.data?.summary || {
+  const timeEntries = timeEntriesData?.data || [];
+  const summary = (timeEntriesData as any)?.summary || {
     totalHours: 0,
     billableHours: 0,
     nonBillableHours: 0,
     entryCount: 0,
   };
+  const breakdown = (timeEntriesData as any)?.breakdown || {
+    byProject: [],
+    byTime: [],
+  };
 
-  // Prepare chart data
+  // Prepare chart data from API breakdown
   const hoursByDay = React.useMemo(() => {
-    const grouped: Record<string, number> = {};
-    timeEntries.forEach((entry: any) => {
-      const date = dayjs(entry.date).format("MMM DD");
-      grouped[date] = (grouped[date] || 0) + entry.durationMinutes / 60;
-    });
-    return Object.entries(grouped).map(([date, hours]) => ({
-      date,
-      hours: Number(hours.toFixed(2)),
+    return breakdown.byTime.map((item: any) => ({
+      date: dayjs(item.period).format("MMM DD"),
+      hours: item.totalHours,
     }));
-  }, [timeEntries]);
+  }, [breakdown.byTime]);
 
   const hoursByProject = React.useMemo(() => {
-    const grouped: Record<string, number> = {};
-    timeEntries.forEach((entry: any) => {
-      const projectName = entry.task?.project?.name || "Unknown";
-      grouped[projectName] =
-        (grouped[projectName] || 0) + entry.durationMinutes / 60;
-    });
-    return Object.entries(grouped).map(([name, hours]) => ({
-      name,
-      value: Number(hours.toFixed(2)),
+    return breakdown.byProject.map((item: any) => ({
+      name: item.projectName,
+      value: item.totalHours,
     }));
-  }, [timeEntries]);
+  }, [breakdown.byProject]);
 
   // Export to CSV
   const exportToCSV = () => {
@@ -291,7 +289,7 @@ export const TimeActivityReport: React.FC = () => {
             value={selectedUser}
             size={isMobile ? "middle" : "large"}
           >
-            {(usersData as any)?.data?.data.map((user: any) => (
+            {usersData?.data?.map((user) => (
               <Select.Option key={user.id} value={user.id}>
                 {user.fullName}
               </Select.Option>

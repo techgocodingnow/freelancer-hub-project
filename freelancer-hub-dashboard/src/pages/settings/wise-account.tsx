@@ -164,13 +164,19 @@ export const WiseAccountSetup: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.success("Wise account saved successfully");
+          message.open({
+            type: "success",
+            content: "Wise account saved successfully",
+          });
           setIsEditing(false);
           setIsSaving(false);
           refetchAccount();
         },
         onError: () => {
-          message.error("Failed to save Wise account");
+          message.open({
+            type: "error",
+            content: "Failed to save Wise account",
+          });
           setIsSaving(false);
         },
       }
@@ -196,12 +202,18 @@ export const WiseAccountSetup: React.FC = () => {
           },
           {
             onSuccess: () => {
-              message.success("Wise account removed successfully");
+              message.open({
+                type: "success",
+                content: "Wise account removed successfully",
+              });
               refetchAccount();
               form.resetFields();
             },
             onError: () => {
-              message.error("Failed to remove Wise account");
+              message.open({
+                type: "error",
+                content: "Failed to remove Wise account",
+              });
             },
           }
         );

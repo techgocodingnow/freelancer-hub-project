@@ -94,7 +94,10 @@ export const PaymentCreate: React.FC = () => {
   const handleCalculateAmount = () => {
     const userId = form.getFieldValue("userId");
     if (!userId || !dateRange) {
-      message.error("Please select a user and date range");
+      message.open({
+        type: "error",
+        content: "Please select a user and date range",
+      });
       return;
     }
 
@@ -117,18 +120,25 @@ export const PaymentCreate: React.FC = () => {
           if (calculation) {
             setCalculatedAmount(calculation.totalAmount);
             form.setFieldsValue({ amount: calculation.totalAmount });
-            message.success(
-              `Calculated: $${calculation.totalAmount.toFixed(2)} (${
+            message.open({
+              type: "success",
+              content: `Calculated: $${calculation.totalAmount.toFixed(2)} (${
                 calculation.billableHours
-              } billable hours)`
-            );
+              } billable hours)`,
+            });
           } else {
-            message.warning("No billable hours found for this period");
+            message.open({
+              type: "warning",
+              content: "No billable hours found for this period",
+            });
           }
           setIsCalculating(false);
         },
         onError: () => {
-          message.error("Failed to calculate amount");
+          message.open({
+            type: "error",
+            content: "Failed to calculate amount",
+          });
           setIsCalculating(false);
         },
       }
@@ -179,12 +189,18 @@ export const PaymentCreate: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.success("Payment created successfully");
+          message.open({
+            type: "success",
+            content: "Payment created successfully",
+          });
           setIsLoading(false);
           navigate(`/tenants/${slug}/financials/payments/history`);
         },
         onError: () => {
-          message.error("Failed to create payment");
+          message.open({
+            type: "error",
+            content: "Failed to create payment",
+          });
           setIsLoading(false);
         },
       }

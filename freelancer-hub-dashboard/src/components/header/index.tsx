@@ -7,11 +7,23 @@ import {
   Switch,
   theme,
   Typography,
+  Dropdown,
+  type MenuProps,
 } from "antd";
+import {
+  UserOutlined,
+  SettingOutlined,
+  BellOutlined,
+  LogoutOutlined,
+} from "@ant-design/icons";
 import React, { useContext } from "react";
+import { useNavigate } from "react-router";
 import { ColorModeContext } from "../../contexts/color-mode";
 import { TenantSelector } from "../tenant-selector";
 import { useIsMobile } from "../../hooks/useMediaQuery";
+import { NotificationBell } from "../notifications";
+import { useTenant } from "../../contexts/tenant";
+import { useLogout } from "@refinedev/core";
 
 const { Text } = Typography;
 const { useToken } = theme;
@@ -29,6 +41,9 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
   const { data: user } = useGetIdentity<IUser>();
   const { mode, setMode } = useContext(ColorModeContext);
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const { tenant } = useTenant();
+  const { mutate: logout } = useLogout();
 
   const headerStyles: React.CSSProperties = {
     backgroundColor: token.colorBgElevated,
@@ -45,6 +60,40 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
     headerStyles.zIndex = 1;
   }
 
+  const menuItems: MenuProps["items"] = [
+    {
+      key: "notifications",
+      icon: <BellOutlined />,
+      label: "Notification Preferences",
+      onClick: () => {
+        if (tenant) {
+          navigate(`/tenants/${tenant.slug}/settings/notifications`);
+        }
+      },
+    },
+    {
+      key: "settings",
+      icon: <SettingOutlined />,
+      label: "Settings",
+      onClick: () => {
+        if (tenant) {
+          navigate(`/tenants/${tenant.slug}/settings/wise-account`);
+        }
+      },
+    },
+    {
+      type: "divider",
+    },
+    {
+      key: "logout",
+      icon: <LogoutOutlined />,
+      label: "Logout",
+      onClick: () => {
+        logout();
+      },
+    },
+  ];
+
   return (
     <AntdLayout.Header style={headerStyles}>
       <div
@@ -57,6 +106,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
       >
         <TenantSelector />
         <Space size={isMobile ? "small" : "middle"}>
+          <NotificationBell />
           <Switch
             checkedChildren="🌛"
             unCheckedChildren="🔆"
@@ -65,13 +115,38 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
             size={isMobile ? "small" : "default"}
           />
           {!isMobile && (
-            <Space style={{ marginLeft: "8px" }} size="middle">
-              {user?.name && <Text strong>{user.name}</Text>}
-              {user?.avatar && <Avatar src={user?.avatar} alt={user?.name} />}
-            </Space>
+            <Dropdown
+              menu={{ items: menuItems }}
+              trigger={["click"]}
+              placement="bottomRight"
+            >
+              <Space
+                style={{ marginLeft: "8px", cursor: "pointer" }}
+                size="middle"
+              >
+                {user?.name && <Text strong>{user.name}</Text>}
+                <Avatar
+                  src={user?.avatar}
+                  alt={user?.name}
+                  icon={!user?.avatar && <UserOutlined />}
+                />
+              </Space>
+            </Dropdown>
           )}
-          {isMobile && user?.avatar && (
-            <Avatar src={user?.avatar} alt={user?.name} size="small" />
+          {isMobile && (
+            <Dropdown
+              menu={{ items: menuItems }}
+              trigger={["click"]}
+              placement="bottomRight"
+            >
+              <Avatar
+                src={user?.avatar}
+                alt={user?.name}
+                size="small"
+                icon={!user?.avatar && <UserOutlined />}
+                style={{ cursor: "pointer" }}
+              />
+            </Dropdown>
           )}
         </Space>
       </div>

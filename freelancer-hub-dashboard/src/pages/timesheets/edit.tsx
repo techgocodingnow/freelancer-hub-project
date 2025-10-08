@@ -169,12 +169,17 @@ export const TimesheetsEdit: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.success("Timesheet updated successfully");
+          message.open({
+            type: "success",
+            content: "Timesheet updated successfully",
+          });
         },
         onError: (error: any) => {
-          message.error(
-            error?.response?.data?.error || "Failed to update timesheet"
-          );
+          message.open({
+            type: "error",
+            content:
+              error?.response?.data?.error || "Failed to update timesheet",
+          });
         },
       }
     );
@@ -182,7 +187,10 @@ export const TimesheetsEdit: React.FC = () => {
 
   const handleSubmit = () => {
     // TODO: Implement submit API call
-    message.success("Timesheet submitted for approval");
+    message.open({
+      type: "success",
+      content: "Timesheet submitted for approval",
+    });
     go({ to: `/tenants/${tenantSlug}/timesheets`, type: "push" });
   };
 

@@ -21,6 +21,23 @@ import {
   InviteUserPayload,
   RemoveUserResponse,
   GetRolesResponse,
+  GetInvitationsResponse,
+  CreateInvitationPayload,
+  ValidateInvitationResponse,
+  SearchMembersResponse,
+  MyInvitationsResponse,
+  AcceptInvitationResponse,
+  RejectInvitationResponse,
+  NotificationListResponse,
+  UnreadCountResponse,
+  MarkAsReadResponse,
+  MarkAllAsReadResponse,
+  DeleteNotificationResponse,
+  NotificationPreferencesResponse,
+  UpdatePreferenceRequest,
+  UpdatePreferenceResponse,
+  MuteAllResponse,
+  DefaultPreferencesResponse,
 } from "./types";
 import ENDPOINTS from "./endpoint";
 class Api {
@@ -254,6 +271,151 @@ class Api {
     return this._privateInstance.get<null, AxiosResponse<GetRolesResponse>>(
       ENDPOINTS.roles.list
     );
+  }
+
+  // Invitations
+  getInvitations(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    project_id?: number;
+  }) {
+    return this._privateInstance.get<
+      null,
+      AxiosResponse<GetInvitationsResponse>
+    >(ENDPOINTS.invitations.list, { params });
+  }
+
+  createInvitation(data: CreateInvitationPayload) {
+    return this._privateInstance.post<
+      CreateInvitationPayload,
+      AxiosResponse<{ message: string; data: any }>
+    >(ENDPOINTS.invitations.create, data);
+  }
+
+  resendInvitation(id: number) {
+    return this._privateInstance.post<
+      null,
+      AxiosResponse<{ message: string; data: any }>
+    >(ENDPOINTS.invitations.resend.replace(":invitationId", id.toString()));
+  }
+
+  cancelInvitation(id: number) {
+    return this._privateInstance.delete<
+      null,
+      AxiosResponse<{ message: string; data: any }>
+    >(ENDPOINTS.invitations.cancel.replace(":invitationId", id.toString()));
+  }
+
+  validateInvitationToken(token: string) {
+    return this._publicInstance.get<
+      null,
+      AxiosResponse<ValidateInvitationResponse>
+    >(ENDPOINTS.invitations.validate.replace(":token", token));
+  }
+
+  getMyInvitations() {
+    return this._privateInstance.get<
+      null,
+      AxiosResponse<MyInvitationsResponse>
+    >(ENDPOINTS.invitations.myInvitations);
+  }
+
+  acceptInvitation(id: number) {
+    return this._privateInstance.post<
+      null,
+      AxiosResponse<AcceptInvitationResponse>
+    >(ENDPOINTS.invitations.accept.replace(":invitationId", id.toString()));
+  }
+
+  rejectInvitation(id: number) {
+    return this._privateInstance.post<
+      null,
+      AxiosResponse<RejectInvitationResponse>
+    >(ENDPOINTS.invitations.reject.replace(":invitationId", id.toString()));
+  }
+
+  searchOrganizationMembers(query: string, limit: number = 10) {
+    return this._privateInstance.get<
+      null,
+      AxiosResponse<SearchMembersResponse>
+    >(ENDPOINTS.users.search, { params: { q: query, limit } });
+  }
+
+  // Notification methods
+  getNotifications(params?: {
+    page?: number;
+    limit?: number;
+    filter?: "all" | "unread" | "read";
+    type?: string;
+  }) {
+    return this._privateInstance.get<
+      null,
+      AxiosResponse<NotificationListResponse>
+    >(ENDPOINTS.notifications.list, { params });
+  }
+
+  getUnreadCount() {
+    return this._privateInstance.get<null, AxiosResponse<UnreadCountResponse>>(
+      ENDPOINTS.notifications.unreadCount
+    );
+  }
+
+  markNotificationAsRead(id: number) {
+    return this._privateInstance.patch<null, AxiosResponse<MarkAsReadResponse>>(
+      ENDPOINTS.notifications.markAsRead.replace(
+        ":notificationId",
+        id.toString()
+      )
+    );
+  }
+
+  markAllNotificationsAsRead() {
+    return this._privateInstance.patch<
+      null,
+      AxiosResponse<MarkAllAsReadResponse>
+    >(ENDPOINTS.notifications.markAllAsRead);
+  }
+
+  deleteNotification(id: number) {
+    return this._privateInstance.delete<
+      null,
+      AxiosResponse<DeleteNotificationResponse>
+    >(ENDPOINTS.notifications.delete.replace(":notificationId", id.toString()));
+  }
+
+  // Notification Preferences
+  getNotificationPreferences() {
+    return this._privateInstance.get<
+      null,
+      AxiosResponse<NotificationPreferencesResponse>
+    >(ENDPOINTS.notificationPreferences.list);
+  }
+
+  updateNotificationPreference(type: string, data: UpdatePreferenceRequest) {
+    return this._privateInstance.patch<
+      UpdatePreferenceRequest,
+      AxiosResponse<UpdatePreferenceResponse>
+    >(ENDPOINTS.notificationPreferences.update.replace(":type", type), data);
+  }
+
+  muteAllNotifications() {
+    return this._privateInstance.patch<null, AxiosResponse<MuteAllResponse>>(
+      ENDPOINTS.notificationPreferences.muteAll
+    );
+  }
+
+  unmuteAllNotifications() {
+    return this._privateInstance.patch<null, AxiosResponse<MuteAllResponse>>(
+      ENDPOINTS.notificationPreferences.unmuteAll
+    );
+  }
+
+  getDefaultNotificationPreferences() {
+    return this._privateInstance.get<
+      null,
+      AxiosResponse<DefaultPreferencesResponse>
+    >(ENDPOINTS.notificationPreferences.defaults);
   }
 }
 

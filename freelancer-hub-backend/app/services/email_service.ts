@@ -1,18 +1,19 @@
 import Invoice from '#models/invoice'
 import Payment from '#models/payment'
 import PayrollBatch from '#models/payroll_batch'
+import Invitation from '#models/invitation'
 import { DateTime } from 'luxon'
 import env from '#start/env'
 
 /**
  * Email Service for sending invoices, receipts, and notifications
- * 
+ *
  * NOTE: This is a placeholder implementation. In production, you would use:
  * - nodemailer: For SMTP email sending
  * - SendGrid: For transactional emails
  * - AWS SES: For scalable email delivery
  * - Mailgun: For email API
- * 
+ *
  * For now, this service logs emails that would be sent
  */
 
@@ -131,6 +132,38 @@ export class EmailService {
 
     const subject = `Payroll Payment - ${batch.batchNumber}`
     const html = this.generatePayrollNotificationHTML(batch, payment)
+
+    return await this.sendEmail({
+      to,
+      subject,
+      html,
+    })
+  }
+
+  /**
+   * Send invitation email
+   */
+  async sendInvitationEmail(invitation: Invitation, baseUrl: string): Promise<boolean> {
+    await invitation.load('tenant', 'role', 'inviter', 'project')
+
+    const to = invitation.email
+    const tenantName = invitation.tenant?.name || 'Freelancer Hub'
+    const inviterName = invitation.inviter?.fullName || invitation.inviter?.email || 'A team member'
+    const roleName = invitation.role?.name || 'member'
+    const projectName = invitation.project?.name
+
+    const subject = projectName
+      ? `You've been invited to join ${projectName} on ${tenantName}`
+      : `You've been invited to join ${tenantName}`
+
+    const html = this.generateInvitationEmailHTML(
+      invitation,
+      baseUrl,
+      tenantName,
+      inviterName,
+      roleName,
+      projectName
+    )
 
     return await this.sendEmail({
       to,
@@ -301,7 +334,87 @@ export class EmailService {
 </html>
     `
   }
+
+  /**
+   * Generate HTML email template for invitation
+   */
+  private generateInvitationEmailHTML(
+    invitation: Invitation,
+    baseUrl: string,
+    tenantName: string,
+    inviterName: string,
+    roleName: string,
+    projectName?: string
+  ): string {
+    const registrationUrl = invitation.getRegistrationUrl(baseUrl)
+    const expiresAt = invitation.expiresAt.toFormat('MMM dd, yyyy')
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invitation to ${tenantName}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+    .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; padding: 30px; text-align: center; }
+    .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+    .content { padding: 30px; }
+    .invitation-details { background: #f8f9fa; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 4px; }
+    .invitation-details p { margin: 8px 0; }
+    .cta-button { display: inline-block; background: #667eea; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
+    .cta-button:hover { background: #5568d3; }
+    .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; }
+    .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin: 20px 0; border-radius: 4px; color: #856404; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎉 You're Invited!</h1>
+    </div>
+
+    <div class="content">
+      <p>Hello,</p>
+
+      <p><strong>${inviterName}</strong> has invited you to join ${projectName ? `the project <strong>${projectName}</strong> on` : ''} <strong>${tenantName}</strong> as a <strong>${roleName}</strong>.</p>
+
+      <div class="invitation-details">
+        <h2 style="margin-top: 0; font-size: 18px;">Invitation Details</h2>
+        <p><strong>Organization:</strong> ${tenantName}</p>
+        ${projectName ? `<p><strong>Project:</strong> ${projectName}</p>` : ''}
+        <p><strong>Role:</strong> ${roleName.charAt(0).toUpperCase() + roleName.slice(1)}</p>
+        <p><strong>Invited by:</strong> ${inviterName}</p>
+        <p><strong>Expires:</strong> ${expiresAt}</p>
+      </div>
+
+      <p>Click the button below to accept the invitation and create your account:</p>
+
+      <div style="text-align: center;">
+        <a href="${registrationUrl}" class="cta-button">Accept Invitation</a>
+      </div>
+
+      <div class="warning">
+        <strong>⚠️ Important:</strong> This invitation link will expire on ${expiresAt}. Please complete your registration before this date.
+      </div>
+
+      <p>If you're unable to click the button, copy and paste this link into your browser:</p>
+      <p style="word-break: break-all; color: #667eea;">${registrationUrl}</p>
+
+      <p>If you weren't expecting this invitation or believe it was sent in error, you can safely ignore this email.</p>
+    </div>
+
+    <div class="footer">
+      <p>${tenantName}</p>
+      <p>This is an automated email. Please do not reply to this message.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `
+  }
 }
 
 export default new EmailService()
-

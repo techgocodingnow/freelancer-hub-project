@@ -94,7 +94,6 @@ export default class MyTasksController {
       .whereNot('status', 'done')
       .whereNull('completed_at')
       .count('* as total')
-    console.log('🚀 ~ MyTasksController ~ index ~ todayCount:', todayCount)
 
     const overdueCount = await Task.query()
       .whereHas('project', (projectQuery) => {
@@ -105,10 +104,8 @@ export default class MyTasksController {
       .whereNot('status', 'done')
       .whereNull('completed_at')
       .count('* as total')
-    console.log('🚀 ~ MyTasksController ~ index ~ overdueCount:', overdueCount)
 
     const result = tasks.serialize()
-    console.log('🚀 ~ MyTasksController ~ index ~ result:', result)
     return response.ok({
       ...result,
       meta: {

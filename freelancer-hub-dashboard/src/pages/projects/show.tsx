@@ -1,5 +1,5 @@
-import React from "react";
-import { useOne, useDelete, useGo } from "@refinedev/core";
+import React, { useState, useEffect } from "react";
+import { useOne, useDelete, useGo, useGetIdentity } from "@refinedev/core";
 import { useParams } from "react-router-dom";
 import {
   Card,
@@ -18,6 +18,7 @@ import {
   Typography,
   Table,
   Avatar,
+  Tooltip,
 } from "antd";
 import {
   EditOutlined,
@@ -27,10 +28,17 @@ import {
   ClockCircleOutlined,
   DollarOutlined,
   CalendarOutlined,
+  UserAddOutlined,
+  MailOutlined,
+  ReloadOutlined,
+  CloseCircleOutlined,
 } from "@ant-design/icons";
 import { useTenantSlug } from "../../contexts/tenant";
 import { useIsMobile, useIsTablet } from "../../hooks/useMediaQuery";
 import { ResponsiveContainer } from "../../components/responsive";
+import { InviteMemberModal } from "../../components/invitations";
+import { Api } from "../../services/api";
+import type { Invitation } from "../../services/api/types";
 
 const { Title, Text } = Typography;
 const { confirm } = Modal;
@@ -42,6 +50,11 @@ export const ProjectShow: React.FC = () => {
   const { mutate: deleteProject } = useDelete();
   const isMobile = useIsMobile();
   const isTablet = useIsTablet();
+  const { data: identity } = useGetIdentity();
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [projectInvitations, setProjectInvitations] = useState<Invitation[]>(
+    []
+  );
 
   const {
     result: project,
@@ -50,6 +63,75 @@ export const ProjectShow: React.FC = () => {
     resource: "projects",
     id: id!,
   });
+
+  const isAdmin = identity?.role === "admin" || identity?.role === "owner";
+
+  useEffect(() => {
+    if (id && isAdmin) {
+      fetchProjectInvitations();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isAdmin]);
+
+  const fetchProjectInvitations = async () => {
+    if (!id) return;
+
+    try {
+      const response = await Api.getInvitations({
+        status: "pending",
+        project_id: parseInt(id),
+      });
+      setProjectInvitations(response.data.data);
+    } catch (err: any) {
+      console.error("Failed to fetch project invitations:", err);
+    }
+  };
+
+  const handleResendInvitation = async (invitation: Invitation) => {
+    try {
+      await Api.resendInvitation(invitation.id);
+      message.open({
+        type: "success",
+        content: `Invitation resent to ${invitation.email}`,
+      });
+      fetchProjectInvitations();
+    } catch (err: any) {
+      message.open({
+        type: "error",
+        content: err?.response?.data?.error || "Failed to resend invitation",
+      });
+    }
+  };
+
+  const handleCancelInvitation = (invitation: Invitation) => {
+    confirm({
+      title: "Cancel Invitation",
+      content: `Are you sure you want to cancel the invitation for ${invitation.email}?`,
+      okText: "Yes",
+      okType: "danger",
+      cancelText: "No",
+      onOk: async () => {
+        try {
+          await Api.cancelInvitation(invitation.id);
+          message.open({
+            type: "success",
+            content: "Invitation cancelled",
+          });
+          fetchProjectInvitations();
+        } catch (err: any) {
+          message.open({
+            type: "error",
+            content:
+              err?.response?.data?.error || "Failed to cancel invitation",
+          });
+        }
+      },
+    });
+  };
+
+  const handleInviteSuccess = () => {
+    fetchProjectInvitations();
+  };
 
   const handleDelete = () => {
     confirm({
@@ -67,11 +149,17 @@ export const ProjectShow: React.FC = () => {
           },
           {
             onSuccess: () => {
-              message.success("Project deleted successfully");
+              message.open({
+                type: "success",
+                content: "Project deleted successfully",
+              });
               go({ to: `/tenants/${tenantSlug}/projects`, type: "push" });
             },
             onError: (error: any) => {
-              message.error(error?.message || "Failed to delete project");
+              message.open({
+                type: "error",
+                content: error?.message || "Failed to delete project",
+              });
             },
           }
         );
@@ -441,13 +529,109 @@ export const ProjectShow: React.FC = () => {
               label: `Team (${project.projectMembers?.length || 0})`,
               children: (
                 <div>
-                  <Button
-                    type="primary"
-                    style={{ marginBottom: 16 }}
-                    block={isMobile}
-                  >
-                    Add Member
-                  </Button>
+                  {isAdmin && (
+                    <Button
+                      type="primary"
+                      icon={<UserAddOutlined />}
+                      style={{ marginBottom: 16 }}
+                      block={isMobile}
+                      onClick={() => setShowInviteModal(true)}
+                    >
+                      Invite Member
+                    </Button>
+                  )}
+
+                  {/* Pending Invitations */}
+                  {isAdmin && projectInvitations.length > 0 && (
+                    <div style={{ marginBottom: 16 }}>
+                      <Typography.Title level={5}>
+                        <MailOutlined /> Pending Invitations (
+                        {projectInvitations.length})
+                      </Typography.Title>
+                      <Space
+                        direction="vertical"
+                        style={{ width: "100%" }}
+                        size="small"
+                      >
+                        {projectInvitations.map((invitation) => (
+                          <Card
+                            key={invitation.id}
+                            size="small"
+                            style={{ backgroundColor: "#fafafa" }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                flexWrap: "wrap",
+                                gap: "8px",
+                              }}
+                            >
+                              <Space>
+                                <MailOutlined />
+                                <Typography.Text strong>
+                                  {invitation.email}
+                                </Typography.Text>
+                                <Tag
+                                  icon={<ClockCircleOutlined />}
+                                  color="orange"
+                                >
+                                  Pending
+                                </Tag>
+                                {invitation.role && (
+                                  <Tag color="blue">
+                                    {invitation.role.name.toUpperCase()}
+                                  </Tag>
+                                )}
+                              </Space>
+                              <Space>
+                                <Tooltip title="Resend invitation">
+                                  <Button
+                                    size="small"
+                                    icon={<ReloadOutlined />}
+                                    onClick={() =>
+                                      handleResendInvitation(invitation)
+                                    }
+                                  >
+                                    Resend
+                                  </Button>
+                                </Tooltip>
+                                <Tooltip title="Cancel invitation">
+                                  <Button
+                                    size="small"
+                                    danger
+                                    icon={<CloseCircleOutlined />}
+                                    onClick={() =>
+                                      handleCancelInvitation(invitation)
+                                    }
+                                  >
+                                    Cancel
+                                  </Button>
+                                </Tooltip>
+                              </Space>
+                            </div>
+                            <Typography.Text
+                              type="secondary"
+                              style={{
+                                fontSize: 12,
+                                marginTop: 4,
+                                display: "block",
+                              }}
+                            >
+                              Invited by{" "}
+                              {invitation.inviter?.fullName || "Unknown"} •
+                              Expires{" "}
+                              {new Date(
+                                invitation.expiresAt
+                              ).toLocaleDateString()}
+                            </Typography.Text>
+                          </Card>
+                        ))}
+                      </Space>
+                    </div>
+                  )}
+
                   <Table
                     dataSource={project.projectMembers || []}
                     columns={memberColumns}
@@ -465,6 +649,15 @@ export const ProjectShow: React.FC = () => {
           ]}
         />
       </Card>
+
+      {/* Invite Member Modal */}
+      <InviteMemberModal
+        open={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        onSuccess={handleInviteSuccess}
+        projectId={id ? parseInt(id) : undefined}
+        projectName={project?.name}
+      />
     </ResponsiveContainer>
   );
 };

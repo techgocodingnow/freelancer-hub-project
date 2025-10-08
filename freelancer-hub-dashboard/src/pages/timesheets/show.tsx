@@ -131,13 +131,18 @@ export const TimesheetsShow: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.success("Timesheet approved successfully");
+          message.open({
+            type: "success",
+            content: "Timesheet approved successfully",
+          });
           refetch();
         },
         onError: (error: any) => {
-          message.error(
-            error?.response?.data?.error || "Failed to approve timesheet"
-          );
+          message.open({
+            type: "error",
+            content:
+              error?.response?.data?.error || "Failed to approve timesheet",
+          });
         },
       }
     );
@@ -155,15 +160,20 @@ export const TimesheetsShow: React.FC = () => {
         },
         {
           onSuccess: () => {
-            message.success("Timesheet rejected");
+            message.open({
+              type: "success",
+              content: "Timesheet rejected",
+            });
             setIsRejectModalOpen(false);
             rejectForm.resetFields();
             refetch();
           },
           onError: (error: any) => {
-            message.error(
-              error?.response?.data?.error || "Failed to reject timesheet"
-            );
+            message.open({
+              type: "error",
+              content:
+                error?.response?.data?.error || "Failed to reject timesheet",
+            });
           },
         }
       );
@@ -179,13 +189,18 @@ export const TimesheetsShow: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.success("Timesheet reopened");
+          message.open({
+            type: "success",
+            content: "Timesheet reopened",
+          });
           refetch();
         },
         onError: (error: any) => {
-          message.error(
-            error?.response?.data?.error || "Failed to reopen timesheet"
-          );
+          message.open({
+            type: "error",
+            content:
+              error?.response?.data?.error || "Failed to reopen timesheet",
+          });
         },
       }
     );

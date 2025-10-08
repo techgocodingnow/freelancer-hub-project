@@ -3,9 +3,9 @@
  * Manages multi-select and batch operations for tasks
  */
 
-import { useState, useCallback } from 'react';
-import { useUpdate, useDelete } from '@refinedev/core';
-import { message } from 'antd';
+import { useState, useCallback } from "react";
+import { useUpdate, useDelete } from "@refinedev/core";
+import { message } from "antd";
 
 export interface BulkActionOptions {
   resource: string;
@@ -46,7 +46,10 @@ export const useBulkActions = (options: BulkActionOptions) => {
   const bulkUpdateStatus = useCallback(
     async (status: string) => {
       if (selectedIds.length === 0) {
-        message.warning('No tasks selected');
+        message.open({
+          type: "warning",
+          content: "No tasks selected",
+        });
         return;
       }
 
@@ -57,30 +60,37 @@ export const useBulkActions = (options: BulkActionOptions) => {
       );
 
       try {
-        const promises = selectedIds.map((id) =>
-          new Promise((resolve, reject) => {
-            updateTask(
-              {
-                resource: options.resource,
-                id,
-                values: { status },
-              },
-              {
-                onSuccess: resolve,
-                onError: reject,
-              }
-            );
-          })
+        const promises = selectedIds.map(
+          (id) =>
+            new Promise((resolve, reject) => {
+              updateTask(
+                {
+                  resource: options.resource,
+                  id,
+                  values: { status },
+                },
+                {
+                  onSuccess: resolve,
+                  onError: reject,
+                }
+              );
+            })
         );
 
         await Promise.all(promises);
         hideLoading();
-        message.success(`Successfully updated ${selectedIds.length} task(s)`);
+        message.open({
+          type: "success",
+          content: `Successfully updated ${selectedIds.length} task(s)`,
+        });
         clearSelection();
         options.onSuccess?.();
       } catch (error: any) {
         hideLoading();
-        message.error(error?.message || 'Failed to update tasks');
+        message.open({
+          type: "error",
+          content: error?.message || "Failed to update tasks",
+        });
         options.onError?.(error);
       } finally {
         setIsProcessing(false);
@@ -93,7 +103,10 @@ export const useBulkActions = (options: BulkActionOptions) => {
   const bulkUpdatePriority = useCallback(
     async (priority: string) => {
       if (selectedIds.length === 0) {
-        message.warning('No tasks selected');
+        message.open({
+          type: "warning",
+          content: "No tasks selected",
+        });
         return;
       }
 
@@ -104,30 +117,37 @@ export const useBulkActions = (options: BulkActionOptions) => {
       );
 
       try {
-        const promises = selectedIds.map((id) =>
-          new Promise((resolve, reject) => {
-            updateTask(
-              {
-                resource: options.resource,
-                id,
-                values: { priority },
-              },
-              {
-                onSuccess: resolve,
-                onError: reject,
-              }
-            );
-          })
+        const promises = selectedIds.map(
+          (id) =>
+            new Promise((resolve, reject) => {
+              updateTask(
+                {
+                  resource: options.resource,
+                  id,
+                  values: { priority },
+                },
+                {
+                  onSuccess: resolve,
+                  onError: reject,
+                }
+              );
+            })
         );
 
         await Promise.all(promises);
         hideLoading();
-        message.success(`Successfully updated ${selectedIds.length} task(s)`);
+        message.open({
+          type: "success",
+          content: `Successfully updated ${selectedIds.length} task(s)`,
+        });
         clearSelection();
         options.onSuccess?.();
       } catch (error: any) {
         hideLoading();
-        message.error(error?.message || 'Failed to update tasks');
+        message.open({
+          type: "error",
+          content: error?.message || "Failed to update tasks",
+        });
         options.onError?.(error);
       } finally {
         setIsProcessing(false);
@@ -140,7 +160,10 @@ export const useBulkActions = (options: BulkActionOptions) => {
   const bulkAssign = useCallback(
     async (assigneeId: number) => {
       if (selectedIds.length === 0) {
-        message.warning('No tasks selected');
+        message.open({
+          type: "warning",
+          content: "No tasks selected",
+        });
         return;
       }
 
@@ -151,30 +174,37 @@ export const useBulkActions = (options: BulkActionOptions) => {
       );
 
       try {
-        const promises = selectedIds.map((id) =>
-          new Promise((resolve, reject) => {
-            updateTask(
-              {
-                resource: options.resource,
-                id,
-                values: { assignee_id: assigneeId },
-              },
-              {
-                onSuccess: resolve,
-                onError: reject,
-              }
-            );
-          })
+        const promises = selectedIds.map(
+          (id) =>
+            new Promise((resolve, reject) => {
+              updateTask(
+                {
+                  resource: options.resource,
+                  id,
+                  values: { assignee_id: assigneeId },
+                },
+                {
+                  onSuccess: resolve,
+                  onError: reject,
+                }
+              );
+            })
         );
 
         await Promise.all(promises);
         hideLoading();
-        message.success(`Successfully assigned ${selectedIds.length} task(s)`);
+        message.open({
+          type: "success",
+          content: `Successfully assigned ${selectedIds.length} task(s)`,
+        });
         clearSelection();
         options.onSuccess?.();
       } catch (error: any) {
         hideLoading();
-        message.error(error?.message || 'Failed to assign tasks');
+        message.open({
+          type: "error",
+          content: error?.message || "Failed to assign tasks",
+        });
         options.onError?.(error);
       } finally {
         setIsProcessing(false);
@@ -186,7 +216,10 @@ export const useBulkActions = (options: BulkActionOptions) => {
   // Bulk delete
   const bulkDelete = useCallback(async () => {
     if (selectedIds.length === 0) {
-      message.warning('No tasks selected');
+      message.open({
+        type: "warning",
+        content: "No tasks selected",
+      });
       return;
     }
 
@@ -197,29 +230,36 @@ export const useBulkActions = (options: BulkActionOptions) => {
     );
 
     try {
-      const promises = selectedIds.map((id) =>
-        new Promise((resolve, reject) => {
-          deleteTask(
-            {
-              resource: options.resource,
-              id,
-            },
-            {
-              onSuccess: resolve,
-              onError: reject,
-            }
-          );
-        })
+      const promises = selectedIds.map(
+        (id) =>
+          new Promise((resolve, reject) => {
+            deleteTask(
+              {
+                resource: options.resource,
+                id,
+              },
+              {
+                onSuccess: resolve,
+                onError: reject,
+              }
+            );
+          })
       );
 
       await Promise.all(promises);
       hideLoading();
-      message.success(`Successfully deleted ${selectedIds.length} task(s)`);
+      message.open({
+        type: "success",
+        content: `Successfully deleted ${selectedIds.length} task(s)`,
+      });
       clearSelection();
       options.onSuccess?.();
     } catch (error: any) {
       hideLoading();
-      message.error(error?.message || 'Failed to delete tasks');
+      message.open({
+        type: "error",
+        content: error?.message || "Failed to delete tasks",
+      });
       options.onError?.(error);
     } finally {
       setIsProcessing(false);
@@ -242,4 +282,3 @@ export const useBulkActions = (options: BulkActionOptions) => {
 };
 
 export default useBulkActions;
-

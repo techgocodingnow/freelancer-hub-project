@@ -82,14 +82,20 @@ export const TaskEdit: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.success("Task updated successfully");
+          message.open({
+            type: "success",
+            content: "Task updated successfully",
+          });
           go({
             to: `/tenants/${tenantSlug}/projects/${projectId}/tasks`,
             type: "push",
           });
         },
         onError: (error: any) => {
-          message.error(error?.message || "Failed to update task");
+          message.open({
+            type: "error",
+            content: error?.message || "Failed to update task",
+          });
         },
       }
     );

@@ -32,7 +32,6 @@ export const TaskCreate: React.FC = () => {
     resource: `projects/${projectId}/members`,
     pagination: { pageSize: 100 },
   });
-  console.log("🚀 ~ TaskCreate ~ membersData:", membersData);
 
   const members = membersData?.data || [];
 
@@ -54,14 +53,20 @@ export const TaskCreate: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.success("Task created successfully");
+          message.open({
+            type: "success",
+            content: "Task created successfully",
+          });
           go({
             to: `/tenants/${tenantSlug}/projects/${projectId}/tasks`,
             type: "push",
           });
         },
         onError: (error: any) => {
-          message.error(error?.message || "Failed to create task");
+          message.open({
+            type: "error",
+            content: error?.message || "Failed to create task",
+          });
         },
       }
     );

@@ -81,7 +81,10 @@ export const TimesheetsApprovals: React.FC = () => {
   // Redirect if not admin
   React.useEffect(() => {
     if (identity && !isAdmin) {
-      message.error("You don't have permission to access this page");
+      message.open({
+        type: "error",
+        content: "You don't have permission to access this page",
+      });
       go({ to: `/tenants/${tenantSlug}/timesheets`, type: "replace" });
     }
   }, [identity, isAdmin, go, tenantSlug]);
@@ -155,14 +158,18 @@ export const TimesheetsApprovals: React.FC = () => {
           },
           {
             onSuccess: () => {
-              message.success("Timesheet approved successfully");
+              message.open({
+                type: "success",
+                content: "Timesheet approved successfully",
+              });
               refetch();
               setSelectedRowKeys(selectedRowKeys.filter((key) => key !== id));
             },
-            onError: (error: any) => {
-              message.error(
-                error?.response?.data?.error || "Failed to approve timesheet"
-              );
+            onError: () => {
+              message.open({
+                type: "error",
+                content: "Failed to approve timesheet",
+              });
             },
           }
         );
@@ -191,7 +198,10 @@ export const TimesheetsApprovals: React.FC = () => {
         },
         {
           onSuccess: () => {
-            message.success("Timesheet rejected");
+            message.open({
+              type: "success",
+              content: "Timesheet rejected",
+            });
             setIsRejectModalOpen(false);
             rejectForm.resetFields();
             setRejectingTimesheetId(null);
@@ -200,10 +210,11 @@ export const TimesheetsApprovals: React.FC = () => {
               selectedRowKeys.filter((key) => key !== rejectingTimesheetId)
             );
           },
-          onError: (error: any) => {
-            message.error(
-              error?.response?.data?.error || "Failed to reject timesheet"
-            );
+          onError: () => {
+            message.open({
+              type: "error",
+              content: "Failed to reject timesheet",
+            });
           },
         }
       );
@@ -212,7 +223,10 @@ export const TimesheetsApprovals: React.FC = () => {
 
   const handleBulkApprove = () => {
     if (selectedRowKeys.length === 0) {
-      message.warning("Please select timesheets to approve");
+      message.open({
+        type: "warning",
+        content: "Please select timesheets to approve",
+      });
       return;
     }
 
@@ -254,10 +268,16 @@ export const TimesheetsApprovals: React.FC = () => {
         }
 
         if (successCount > 0) {
-          message.success(`${successCount} timesheet(s) approved successfully`);
+          message.open({
+            type: "success",
+            content: `${successCount} timesheet(s) approved successfully`,
+          });
         }
         if (errorCount > 0) {
-          message.error(`Failed to approve ${errorCount} timesheet(s)`);
+          message.open({
+            type: "error",
+            content: `Failed to approve ${errorCount} timesheet(s)`,
+          });
         }
 
         refetch();

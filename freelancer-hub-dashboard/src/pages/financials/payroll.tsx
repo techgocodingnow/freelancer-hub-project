@@ -115,7 +115,10 @@ export const PayrollManagement: React.FC = () => {
           setIsCalculating(false);
         },
         onError: () => {
-          message.error("Failed to calculate payroll");
+          message.open({
+            type: "error",
+            content: "Failed to calculate payroll",
+          });
           setIsCalculating(false);
         },
       }
@@ -125,7 +128,10 @@ export const PayrollManagement: React.FC = () => {
   // Create payroll batch
   const handleCreateBatch = () => {
     if (!payrollPreview) {
-      message.error("Please calculate payroll first");
+      message.open({
+        type: "error",
+        content: "Please calculate payroll first",
+      });
       return;
     }
 
@@ -144,7 +150,10 @@ export const PayrollManagement: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.success("Payroll batch created successfully");
+          message.open({
+            type: "success",
+            content: "Payroll batch created successfully",
+          });
           setIsCreateModalOpen(false);
           setIsPreviewModalOpen(false);
           setPayrollPreview(null);
@@ -153,7 +162,10 @@ export const PayrollManagement: React.FC = () => {
           refetchBatches();
         },
         onError: () => {
-          message.error("Failed to create payroll batch");
+          message.open({
+            type: "error",
+            content: "Failed to create payroll batch",
+          });
           setIsCreating(false);
         },
       }
@@ -183,11 +195,17 @@ export const PayrollManagement: React.FC = () => {
           },
           {
             onSuccess: () => {
-              message.success("Payroll batch processed successfully");
+              message.open({
+                type: "success",
+                content: "Payroll batch processed successfully",
+              });
               refetchBatches();
             },
             onError: () => {
-              message.error("Failed to process payroll batch");
+              message.open({
+                type: "error",
+                content: "Failed to process payroll batch",
+              });
             },
           }
         );
@@ -210,11 +228,17 @@ export const PayrollManagement: React.FC = () => {
           },
           {
             onSuccess: () => {
-              message.success("Payroll batch deleted successfully");
+              message.open({
+                type: "success",
+                content: "Payroll batch deleted successfully",
+              });
               refetchBatches();
             },
             onError: () => {
-              message.error("Failed to delete payroll batch");
+              message.open({
+                type: "error",
+                content: "Failed to delete payroll batch",
+              });
             },
           }
         );

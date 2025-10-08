@@ -89,7 +89,10 @@ export const TimerWidget: React.FC = () => {
 
   const handleStart = () => {
     if (!selectedTaskId) {
-      message.error("Please select a task");
+      message.open({
+        type: "error",
+        content: "Please select a task",
+      });
       return;
     }
 
@@ -102,14 +105,20 @@ export const TimerWidget: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.success("Timer started");
+          message.open({
+            type: "success",
+            content: "Timer started",
+          });
           setIsModalOpen(false);
           setDescription("");
           setSelectedTaskId(undefined);
           refetch();
         },
         onError: (error: any) => {
-          message.error(error?.message || "Failed to start timer");
+          message.open({
+            type: "error",
+            content: error?.message || "Failed to start timer",
+          });
         },
       }
     );
@@ -126,11 +135,17 @@ export const TimerWidget: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.success("Timer stopped");
+          message.open({
+            type: "success",
+            content: "Timer stopped",
+          });
           refetch();
         },
         onError: (error: any) => {
-          message.error(error?.message || "Failed to stop timer");
+          message.open({
+            type: "error",
+            content: error?.message || "Failed to stop timer",
+          });
         },
       }
     );
