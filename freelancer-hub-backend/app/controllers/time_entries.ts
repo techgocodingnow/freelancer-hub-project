@@ -99,6 +99,7 @@ export default class TimeEntriesController {
 
     // Build base query
     const query = TimeEntry.query()
+      .select('time_entries.*', 'tasks.id as task_id', 'projects.id as project_id')
       .join('tasks', 'time_entries.task_id', 'tasks.id')
       .join('projects', 'tasks.project_id', 'projects.id')
       .where('projects.tenant_id', tenant.id)
@@ -281,17 +282,17 @@ export default class TimeEntriesController {
       taskId = task.id
     } else {
       // Global: taskId from request body (with validation)
-      const bodyData = request.only(['project_id', 'task_id'])
+      const bodyData = request.only(['projectId', 'taskId'])
 
-      if (!bodyData.project_id || !bodyData.task_id) {
+      if (!bodyData.projectId || !bodyData.taskId) {
         return response.badRequest({
-          error: 'project_id and task_id are required when creating time entry globally',
+          error: 'projectId and taskId are required when creating time entry globally',
         })
       }
 
       // Verify project belongs to tenant
       const project = await Project.query()
-        .where('id', bodyData.project_id)
+        .where('id', bodyData.projectId)
         .where('tenant_id', tenant.id)
         .first()
 
@@ -301,7 +302,7 @@ export default class TimeEntriesController {
 
       // Verify task belongs to project
       const task = await Task.query()
-        .where('id', bodyData.task_id)
+        .where('id', bodyData.taskId)
         .where('project_id', project.id)
         .first()
 
@@ -425,6 +426,8 @@ export default class TimeEntriesController {
    * Supports both task-scoped and global deletion
    */
   async destroy({ tenant, auth, params, response }: HttpContext) {
+    console.log('🚀 ~ TimeEntriesController ~ destroy ~ params:', params)
+    console.log('🚀 ~ TimeEntriesController ~ destroy ~ tenant:', tenant)
     const user = auth.getUserOrFail()
     const isTaskScoped = !!params.taskId
 
@@ -612,6 +615,27 @@ export default class TimeEntriesController {
         currentDuration,
       },
     })
+  }
+
+  /**
+   * Show a specific time entry
+   */
+  async show({ tenant, params, response }: HttpContext) {
+    const timeEntry = await TimeEntry.query()
+      .select('time_entries.*', 'tasks.id as task_id', 'projects.id as project_id')
+      .join('tasks', 'time_entries.task_id', 'tasks.id')
+      .join('projects', 'tasks.project_id', 'projects.id')
+      .where('projects.tenant_id', tenant.id)
+      .preload('user')
+      .preload('task', (taskQuery) => {
+        taskQuery.preload('project')
+      })
+      .where('time_entries.id', params.id)
+      .firstOrFail()
+    if (!timeEntry) {
+      return response.notFound({ error: 'Time entry not found' })
+    }
+    return response.ok({ data: timeEntry })
   }
 
   /**

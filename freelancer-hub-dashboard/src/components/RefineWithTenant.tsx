@@ -68,8 +68,9 @@ export const RefineWithTenant: React.FC<
         edit: `/tenants/${slug}/time-entries/:id/edit`,
         meta: {
           label: "Time Entries",
+          parent: "timesheets",
           canDelete: true,
-          icon: <CheckSquareOutlined />,
+          icon: <ClockCircleOutlined />,
         },
       },
       {

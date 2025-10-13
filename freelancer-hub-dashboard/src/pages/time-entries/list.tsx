@@ -12,9 +12,6 @@ import {
   Row,
   Col,
   Spin,
-  Modal,
-  Form,
-  Input,
   message,
   Popconfirm,
 } from "antd";
@@ -27,7 +24,13 @@ import {
   FileTextOutlined,
   DownloadOutlined,
 } from "@ant-design/icons";
-import { useList, useDelete, useGo, useGetIdentity } from "@refinedev/core";
+import {
+  useList,
+  useDelete,
+  useGo,
+  useGetIdentity,
+  useInvalidate,
+} from "@refinedev/core";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { ResponsiveContainer } from "../../components/responsive";
 import { useTenantSlug } from "../../contexts/tenant";
@@ -83,6 +86,7 @@ export const TimeEntriesList: React.FC = () => {
   const tenantSlug = useTenantSlug();
   const { data: identity } = useGetIdentity();
   const { mutate: deleteEntry } = useDelete();
+  const invalidate = useInvalidate();
 
   // Filters
   const [viewMode, setViewMode] = useState<"daily" | "weekly">("daily");
@@ -184,6 +188,12 @@ export const TimeEntriesList: React.FC = () => {
       {
         onSuccess: () => {
           message.success("Time entry deleted successfully");
+          // Invalidate the time-entries list query to trigger a refetch
+          invalidate({
+            resource: "time-entries",
+            invalidates: ["list"],
+          });
+          // Also refetch to ensure immediate update
           refetch();
         },
         onError: (error: any) => {
@@ -409,7 +419,7 @@ export const TimeEntriesList: React.FC = () => {
               value={selectedUser}
               size={isMobile ? "middle" : "large"}
             >
-              {usersData?.data?.map((user: any) => (
+              {usersData?.data?.map((user) => (
                 <Select.Option key={user.id} value={user.id}>
                   {user.fullName}
                 </Select.Option>
@@ -424,7 +434,7 @@ export const TimeEntriesList: React.FC = () => {
             value={selectedProject}
             size={isMobile ? "middle" : "large"}
           >
-            {projectsData?.data?.map((project: any) => (
+            {projectsData?.data?.map((project) => (
               <Select.Option key={project.id} value={project.id}>
                 {project.name}
               </Select.Option>

@@ -110,10 +110,10 @@ router
         router.post('/tasks/:taskId/time-entries/start', [TimeEntriesController, 'start'])
         router.post('/tasks/:taskId/time-entries/stop', [TimeEntriesController, 'stop'])
 
-        // Active timer (global endpoint)
-        router.get('/time-entries/active', [TimeEntriesController, 'active'])
-
         // Time Entries Management (global time entry CRUD - unified controller)
+        // Note: /active must come before /:id to avoid route conflicts
+        router.get('/time-entries/active', [TimeEntriesController, 'active'])
+        router.get('/time-entries/:id', [TimeEntriesController, 'show'])
         router.get('/time-entries', [TimeEntriesController, 'index'])
         router.post('/time-entries', [TimeEntriesController, 'store'])
         router.put('/time-entries/:id', [TimeEntriesController, 'update'])

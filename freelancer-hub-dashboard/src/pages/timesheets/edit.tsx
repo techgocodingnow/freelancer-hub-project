@@ -78,19 +78,24 @@ export const TimesheetsEdit: React.FC = () => {
   const [editingEntry, setEditingEntry] = useState<TimeEntry | null>(null);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
 
-  const { data: timesheetData, isLoading } = useOne<Timesheet>({
+  const {
+    result: timesheet,
+    query: { isPending: isLoading },
+  } = useOne<Timesheet>({
     resource: "timesheets",
     id: id!,
   });
 
-  const { data: tasksData } = useList({
+  const { result: tasksData } = useList({
     resource: "my-tasks",
     pagination: { pageSize: 100 },
   });
 
-  const { mutate: updateTimesheet, isLoading: isUpdating } = useUpdate();
+  const {
+    mutate: updateTimesheet,
+    mutation: { isPending: isUpdating },
+  } = useUpdate();
 
-  const timesheet = timesheetData?.data;
   const tasks = tasksData?.data || [];
 
   useEffect(() => {
@@ -409,7 +414,7 @@ export const TimesheetsEdit: React.FC = () => {
               showSearch
               optionFilterProp="children"
             >
-              {tasks.map((task: any) => (
+              {tasks.map((task) => (
                 <Select.Option key={task.id} value={task.id}>
                   {task.title} - {task.project?.name}
                 </Select.Option>

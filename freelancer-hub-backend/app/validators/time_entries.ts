@@ -5,6 +5,8 @@ import vine from '@vinejs/vine'
  */
 export const createTimeEntryValidator = vine.compile(
   vine.object({
+    projectId: vine.number(),
+    taskId: vine.number(),
     description: vine.string().trim().optional(),
     startTime: vine.string().optional(),
     endTime: vine.string().optional(),
@@ -19,6 +21,8 @@ export const createTimeEntryValidator = vine.compile(
  */
 export const updateTimeEntryValidator = vine.compile(
   vine.object({
+    projectId: vine.number().optional(),
+    taskId: vine.number().optional(),
     description: vine.string().trim().optional(),
     startTime: vine.string().optional(),
     endTime: vine.string().optional(),
