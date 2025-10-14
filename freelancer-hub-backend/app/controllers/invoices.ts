@@ -83,49 +83,47 @@ export default class InvoicesController {
   }
 
   /**
-   * Create a manual invoice (with optional project-based time entries)
+   * Create a manual invoice (with optional multiple projects)
+   * Supports backward compatibility with single projectId or new projectIds array
    */
   async store({ tenant, auth, request, response }: HttpContext) {
     const user = auth.getUserOrFail()
     const data = await request.validateUsing(createInvoiceValidator)
 
-    let customer: Customer | null = null
-    let project: Project | null = null
-    let projectId: number | null = null
-    let customerId: number | null = null
+    // Normalize input: convert old format to new format for consistency
+    let projectConfigs: Array<{ projectId: number; hourlyRate: number }> = []
 
-    // Handle project-based invoice
-    if (data.projectId) {
-      project = await Project.query()
-        .where('id', data.projectId)
-        .where('tenant_id', tenant.id)
-        .preload('customer')
-        .first()
-
-      if (!project) {
-        return response.notFound({ error: 'Project not found' })
-      }
-
-      projectId = project.id
-
-      // Use project's customer if no customerId provided
-      if (data.customerId) {
-        customerId = data.customerId
-      } else if (project.customerId) {
-        customerId = project.customerId
-      }
-    } else if (data.customerId) {
-      customerId = data.customerId
+    if (data.projectIds && data.projectIds.length > 0) {
+      // New format: multiple projects
+      projectConfigs = data.projectIds
+    } else if (data.projectId && data.hourlyRate) {
+      // Old format: single project (backward compatibility)
+      projectConfigs = [{ projectId: data.projectId, hourlyRate: data.hourlyRate }]
     }
 
-    // Fetch customer details
+    // Determine customer
+    let customerId: number | null = data.customerId || null
+
+    // If no customer provided, try to get from first project
+    if (!customerId && projectConfigs.length > 0) {
+      const firstProject = await Project.query()
+        .where('id', projectConfigs[0].projectId)
+        .where('tenant_id', tenant.id)
+        .first()
+
+      if (firstProject && firstProject.customerId) {
+        customerId = firstProject.customerId
+      }
+    }
+
     if (!customerId) {
       return response.badRequest({
         error: 'Either customerId or a project with a customer must be provided',
       })
     }
 
-    customer = await Customer.query()
+    // Fetch customer
+    const customer = await Customer.query()
       .where('id', customerId)
       .where('tenant_id', tenant.id)
       .first()
@@ -162,13 +160,31 @@ export default class InvoicesController {
       amount: number
     }> = []
 
-    // If project selected, fetch time entries and generate line items per member
-    if (projectId && data.hourlyRate) {
+    // Process each project and generate line items
+    const invoiceProjectData: Array<{ projectId: number; hourlyRate: number }> = []
+
+    for (const projectConfig of projectConfigs) {
+      // Fetch project details
+      const project = await Project.query()
+        .where('id', projectConfig.projectId)
+        .where('tenant_id', tenant.id)
+        .first()
+
+      if (!project) {
+        return response.notFound({ error: `Project ${projectConfig.projectId} not found` })
+      }
+
+      invoiceProjectData.push({
+        projectId: project.id,
+        hourlyRate: projectConfig.hourlyRate,
+      })
+
+      // Fetch time entries for this project
       const timeEntriesQuery = db
         .from('time_entries')
         .join('tasks', 'time_entries.task_id', 'tasks.id')
         .join('users', 'time_entries.user_id', 'users.id')
-        .where('tasks.project_id', projectId)
+        .where('tasks.project_id', project.id)
         .where('time_entries.billable', true)
         .where('time_entries.date', '>=', startDate.toSQLDate())
         .where('time_entries.date', '<=', endDate.toSQLDate())
@@ -181,15 +197,15 @@ export default class InvoicesController {
 
       const timeEntries = await timeEntriesQuery
 
-      // Generate line items per member
+      // Generate line items per member for this project
       for (const entry of timeEntries) {
         const hours = Number(entry.total_minutes) / 60
         allItems.push({
-          description: `Work by ${entry.user_name}`,
-          quantity: Math.round(hours * 100) / 100, // Round to 2 decimals
+          description: `Work by ${entry.user_name} on ${project.name}`,
+          quantity: Math.round(hours * 100) / 100,
           unit: 'hours',
-          unitPrice: data.hourlyRate,
-          amount: hours * data.hourlyRate,
+          unitPrice: projectConfig.hourlyRate,
+          amount: hours * projectConfig.hourlyRate,
         })
       }
     }
@@ -228,11 +244,11 @@ export default class InvoicesController {
       .filter(Boolean)
       .join(', ')
 
-    // Create invoice
+    // Create invoice (keep projectId for backward compatibility with first project)
     const invoice = await Invoice.create({
       tenantId: tenant.id,
       userId: user.id,
-      projectId,
+      projectId: projectConfigs.length > 0 ? projectConfigs[0].projectId : null,
       customerId: customer.id,
       invoiceNumber,
       status: 'draft',
@@ -251,6 +267,15 @@ export default class InvoicesController {
       sentTo: data.toEmail || customer.email,
     })
 
+    // Create invoice_projects records
+    for (const projectData of invoiceProjectData) {
+      await InvoiceProject.create({
+        invoiceId: invoice.id,
+        projectId: projectData.projectId,
+        hourlyRate: projectData.hourlyRate,
+      })
+    }
+
     // Create invoice items
     for (const item of allItems) {
       await InvoiceItem.create({
@@ -266,9 +291,7 @@ export default class InvoicesController {
     // Load relationships
     await invoice.load('user')
     await invoice.load('customer')
-    if (projectId) {
-      await invoice.load('project')
-    }
+    await invoice.load('projects')
     await invoice.load('items')
 
     return response.created({ data: invoice })
