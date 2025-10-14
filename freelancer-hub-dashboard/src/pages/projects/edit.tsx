@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useOne, useUpdate, useGo } from "@refinedev/core";
 import { useParams } from "react-router-dom";
 import {
@@ -14,6 +14,7 @@ import {
 } from "antd";
 import { SaveOutlined, CloseOutlined } from "@ant-design/icons";
 import { useTenantSlug } from "../../contexts/tenant";
+import { Api } from "../../services/api";
 import dayjs from "dayjs";
 
 const { TextArea } = Input;
@@ -25,6 +26,8 @@ export const ProjectEdit: React.FC = () => {
   const go = useGo();
   const { mutate: updateProject, mutation } = useUpdate();
   const [form] = Form.useForm();
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
 
   const {
     result: project,
@@ -34,12 +37,29 @@ export const ProjectEdit: React.FC = () => {
     id: id!,
   });
 
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    setLoadingCustomers(true);
+    try {
+      const response = await Api.getCustomers({ isActive: true });
+      setCustomers(response.data.data || []);
+    } catch (error) {
+      console.error("Failed to fetch customers:", error);
+    } finally {
+      setLoadingCustomers(false);
+    }
+  };
+
   React.useEffect(() => {
     if (project) {
       form.setFieldsValue({
         name: project.name,
         description: project.description,
         status: project.status,
+        customerId: project.customerId,
         dateRange:
           project.startDate && project.endDate
             ? [dayjs(project.startDate), dayjs(project.endDate)]
@@ -54,6 +74,7 @@ export const ProjectEdit: React.FC = () => {
       name: values.name,
       description: values.description,
       status: values.status,
+      customerId: values.customerId,
       startDate: values.dateRange?.[0]?.format("YYYY-MM-DD"),
       endDate: values.dateRange?.[1]?.format("YYYY-MM-DD"),
       budget: values.budget,
@@ -102,6 +123,28 @@ export const ProjectEdit: React.FC = () => {
               placeholder="Enter project description"
               maxLength={1000}
               showCount
+            />
+          </Form.Item>
+
+          <Form.Item label="Customer" name="customerId">
+            <Select
+              placeholder="Select a customer (optional)"
+              size="large"
+              loading={loadingCustomers}
+              showSearch
+              allowClear
+              optionFilterProp="children"
+              filterOption={(input, option) =>
+                (option?.label ?? "")
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
+              options={customers.map((customer) => ({
+                value: customer.id,
+                label: customer.company
+                  ? `${customer.name} (${customer.company})`
+                  : customer.name,
+              }))}
             />
           </Form.Item>
 

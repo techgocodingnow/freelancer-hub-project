@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useCreate, useGo } from "@refinedev/core";
 import {
   Form,
@@ -15,6 +15,7 @@ import { SaveOutlined, CloseOutlined } from "@ant-design/icons";
 import { useTenantSlug } from "../../contexts/tenant";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { ResponsiveContainer } from "../../components/responsive";
+import { Api } from "../../services/api";
 
 const { TextArea } = Input;
 const { RangePicker } = DatePicker;
@@ -28,6 +29,24 @@ export const ProjectCreate: React.FC = () => {
   } = useCreate();
   const [form] = Form.useForm();
   const isMobile = useIsMobile();
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    setLoadingCustomers(true);
+    try {
+      const response = await Api.getCustomers({ isActive: true });
+      setCustomers(response.data.data || []);
+    } catch (error) {
+      console.error("Failed to fetch customers:", error);
+    } finally {
+      setLoadingCustomers(false);
+    }
+  };
 
   const onFinish = (values: {
     name: string;
@@ -35,6 +54,7 @@ export const ProjectCreate: React.FC = () => {
     status: string;
     dateRange: [any, any];
     budget: number;
+    customerId?: number;
   }) => {
     const projectData = {
       name: values.name,
@@ -43,6 +63,7 @@ export const ProjectCreate: React.FC = () => {
       startDate: values.dateRange?.[0]?.format("YYYY-MM-DD"),
       endDate: values.dateRange?.[1]?.format("YYYY-MM-DD"),
       budget: values.budget,
+      customerId: values.customerId,
     };
 
     createProject(
@@ -79,6 +100,28 @@ export const ProjectCreate: React.FC = () => {
               placeholder="Enter project description"
               maxLength={1000}
               showCount
+            />
+          </Form.Item>
+
+          <Form.Item label="Customer" name="customerId">
+            <Select
+              placeholder="Select a customer (optional)"
+              size={isMobile ? "middle" : "large"}
+              loading={loadingCustomers}
+              showSearch
+              allowClear
+              optionFilterProp="children"
+              filterOption={(input, option) =>
+                (option?.label ?? "")
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
+              options={customers.map((customer) => ({
+                value: customer.id,
+                label: customer.company
+                  ? `${customer.name} (${customer.company})`
+                  : customer.name,
+              }))}
             />
           </Form.Item>
 

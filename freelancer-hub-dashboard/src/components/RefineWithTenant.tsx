@@ -12,6 +12,7 @@ import {
   FileTextOutlined,
   BankOutlined,
   ClockCircleOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 
 /**
@@ -90,6 +91,18 @@ export const RefineWithTenant: React.FC<
           label: "Users",
           canDelete: false,
           icon: <TeamOutlined />,
+        },
+      },
+      {
+        name: "customers",
+        list: `/tenants/${slug}/customers`,
+        create: `/tenants/${slug}/customers/create`,
+        edit: `/tenants/${slug}/customers/:id/edit`,
+        show: `/tenants/${slug}/customers/:id/show`,
+        meta: {
+          label: "Customers",
+          canDelete: true,
+          icon: <UserOutlined />,
         },
       },
       {

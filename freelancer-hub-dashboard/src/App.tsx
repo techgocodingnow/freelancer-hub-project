@@ -46,6 +46,7 @@ import {
   TimeEntryEdit,
 } from "./pages/time-entries";
 import { UserList } from "./pages/users";
+import { CustomerList } from "./pages/customers";
 import {
   ReportsIndex,
   TimeActivityReport,
@@ -60,6 +61,7 @@ import {
   PaymentHistory,
   PaymentCreate,
   InvoiceManagement,
+  InvoiceCreate,
   FinancialDashboard,
 } from "./pages/financials";
 import { WiseAccountSetup } from "./pages/settings";
@@ -218,6 +220,9 @@ function App() {
                       <Route path="users">
                         <Route index element={<UserList />} />
                       </Route>
+                      <Route path="customers">
+                        <Route index element={<CustomerList />} />
+                      </Route>
                       <Route path="reports">
                         <Route index element={<ReportsIndex />} />
                         <Route
@@ -256,6 +261,10 @@ function App() {
                         <Route
                           path="invoices"
                           element={<InvoiceManagement />}
+                        />
+                        <Route
+                          path="invoices/create"
+                          element={<InvoiceCreate />}
                         />
                       </Route>
                       <Route path="settings">

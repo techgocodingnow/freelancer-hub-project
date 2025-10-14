@@ -414,6 +414,17 @@ export const ProjectShow: React.FC = () => {
                       <Text type="secondary">No description</Text>
                     )}
                   </Descriptions.Item>
+                  {project.customer && (
+                    <Descriptions.Item label="Customer" span={2}>
+                      <Space>
+                        <UserOutlined />
+                        <Text strong>{project.customer.name}</Text>
+                        {project.customer.company && (
+                          <Text type="secondary">({project.customer.company})</Text>
+                        )}
+                      </Space>
+                    </Descriptions.Item>
+                  )}
                   <Descriptions.Item label="Status">
                     <Tag color={getStatusColor(project.status)}>
                       {project.status.toUpperCase()}

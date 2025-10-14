@@ -209,50 +209,6 @@ export const ReportsIndex: React.FC = () => {
           </Col>
         ))}
       </Row>
-
-      {/* Help Text */}
-      <Card
-        style={{
-          marginTop: tokens.spacing[6],
-          backgroundColor: tokens.colors.background.paper,
-          borderRadius: tokens.borderRadius.lg,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            flexDirection: isMobile ? "column" : "row",
-            alignItems: isMobile ? "flex-start" : "center",
-            gap: isMobile ? "12px" : "16px",
-          }}
-        >
-          <div
-            style={{
-              fontSize: isMobile ? 24 : 32,
-              color: tokens.colors.primary.main,
-            }}
-          >
-            💡
-          </div>
-          <div style={{ flex: 1 }}>
-            <Title level={5} style={{ marginBottom: "8px", marginTop: 0 }}>
-              Need Help?
-            </Title>
-            <Paragraph
-              style={{
-                fontSize: isMobile ? "13px" : "14px",
-                color: tokens.colors.text.secondary,
-                marginBottom: 0,
-              }}
-            >
-              All reports support filtering by date range, user, and project.
-              You can export any report to CSV format for further analysis. Use
-              the filters at the top of each report to customize the data you
-              want to see.
-            </Paragraph>
-          </div>
-        </div>
-      </Card>
     </ResponsiveContainer>
   );
 };

@@ -42,7 +42,7 @@ export const ResponsiveContainer: React.FC<ResponsiveContainerProps> = ({
 
   const containerStyle: React.CSSProperties = {
     width: "100%",
-    maxWidth: maxWidthMap[maxWidth],
+    // maxWidth: maxWidthMap[maxWidth],
     margin: "0 auto",
     padding: getPadding(),
     ...style,
