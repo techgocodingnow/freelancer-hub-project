@@ -23,6 +23,7 @@ import {
   DollarOutlined,
   FileTextOutlined,
   DownloadOutlined,
+  UploadOutlined,
 } from "@ant-design/icons";
 import {
   useList,
@@ -49,6 +50,7 @@ import {
   ResponsiveContainer as RechartsResponsiveContainer,
 } from "recharts";
 import { tokens } from "../../theme/tokens";
+import { CsvUploadModal } from "../../components/time-entries/CsvUploadModal";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -97,6 +99,9 @@ export const TimeEntriesList: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<number | undefined>();
   const [selectedProject, setSelectedProject] = useState<number | undefined>();
   const [billableFilter, setBillableFilter] = useState<string | undefined>();
+
+  // CSV Upload Modal
+  const [csvUploadVisible, setCsvUploadVisible] = useState(false);
 
   // Check if user is admin
   const isAdmin =
@@ -202,6 +207,15 @@ export const TimeEntriesList: React.FC = () => {
         },
       }
     );
+  };
+
+  // Handle CSV import success
+  const handleCsvImportSuccess = () => {
+    invalidate({
+      resource: "time-entries",
+      invalidates: ["list"],
+    });
+    refetch();
   };
 
   // Export to CSV
@@ -364,7 +378,7 @@ export const TimeEntriesList: React.FC = () => {
         }}
       >
         <Title level={isMobile ? 3 : 2}>Time Entries</Title>
-        <Space>
+        <Space wrap>
           <Button
             type="default"
             icon={<DownloadOutlined />}
@@ -372,6 +386,14 @@ export const TimeEntriesList: React.FC = () => {
             size={isMobile ? "middle" : "large"}
           >
             Export
+          </Button>
+          <Button
+            type="default"
+            icon={<UploadOutlined />}
+            onClick={() => setCsvUploadVisible(true)}
+            size={isMobile ? "middle" : "large"}
+          >
+            Import CSV
           </Button>
           <Button
             type="primary"
@@ -588,6 +610,13 @@ export const TimeEntriesList: React.FC = () => {
           }}
         />
       </Card>
+
+      {/* CSV Upload Modal */}
+      <CsvUploadModal
+        visible={csvUploadVisible}
+        onClose={() => setCsvUploadVisible(false)}
+        onSuccess={handleCsvImportSuccess}
+      />
     </ResponsiveContainer>
   );
 };

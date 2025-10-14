@@ -111,8 +111,9 @@ router
         router.post('/tasks/:taskId/time-entries/stop', [TimeEntriesController, 'stop'])
 
         // Time Entries Management (global time entry CRUD - unified controller)
-        // Note: /active must come before /:id to avoid route conflicts
+        // Note: /active and /import must come before /:id to avoid route conflicts
         router.get('/time-entries/active', [TimeEntriesController, 'active'])
+        router.post('/time-entries/import', [TimeEntriesController, 'importCsv'])
         router.get('/time-entries/:id', [TimeEntriesController, 'show'])
         router.get('/time-entries', [TimeEntriesController, 'index'])
         router.post('/time-entries', [TimeEntriesController, 'store'])

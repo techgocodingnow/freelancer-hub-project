@@ -10,6 +10,7 @@ import {
   updateTimeEntryValidator,
   startTimerValidator,
 } from '#validators/time_entries'
+import { parse } from 'csv-parse/sync'
 
 export default class TimeEntriesController {
   /**
@@ -634,6 +635,283 @@ export default class TimeEntriesController {
       return response.notFound({ error: 'Time entry not found' })
     }
     return response.ok({ data: timeEntry })
+  }
+
+  /**
+   * Import time entries from CSV file
+   */
+  async importCsv({ tenant, auth, request, response }: HttpContext) {
+    const user = auth.getUserOrFail()
+
+    // Validate file upload
+    const csvFile = request.file('csv', {
+      size: '10mb',
+      extnames: ['csv'],
+    })
+
+    if (!csvFile) {
+      return response.unprocessableEntity({
+        errors: [
+          {
+            message: 'CSV file is required',
+          },
+        ],
+      })
+    }
+
+    // Read CSV file content
+    const csvContent = await csvFile.tmpPath?.toString()
+    if (!csvContent) {
+      return response.unprocessableEntity({
+        errors: [
+          {
+            message: 'Failed to read CSV file',
+          },
+        ],
+      })
+    }
+
+    const fileContent = await import('fs').then((fs) =>
+      fs.promises.readFile(csvContent, 'utf-8')
+    )
+
+    // Parse CSV
+    let records: any[]
+    try {
+      records = parse(fileContent, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+      })
+    } catch (error) {
+      return response.unprocessableEntity({
+        errors: [
+          {
+            message: 'Invalid CSV file format',
+          },
+        ],
+      })
+    }
+
+    // Get skip invalid flag
+    const skipInvalid = request.input('skipInvalid') === 'true'
+
+    // Validate and process records
+    const errors: any[] = []
+    const validRecords: any[] = []
+    const taskIdsToUpdate = new Set<number>()
+    const autoCreatedTasks: string[] = []
+
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i]
+      const rowNumber = i + 2 // +2 because row 1 is header and arrays are 0-indexed
+
+      // Validate date
+      const dateStr = record['Date']?.trim()
+      if (!dateStr || !DateTime.fromISO(dateStr).isValid) {
+        errors.push({
+          row: rowNumber,
+          field: 'date',
+          message: 'Invalid date format. Use YYYY-MM-DD',
+        })
+        continue
+      }
+
+      // Validate description
+      const description = record['Description']?.trim()
+      if (!description || description.length < 3) {
+        errors.push({
+          row: rowNumber,
+          field: 'description',
+          message: 'Description is required and must be at least 3 characters',
+        })
+        continue
+      }
+
+      // Find project
+      const projectName = record['Project']?.trim()
+      if (!projectName) {
+        errors.push({
+          row: rowNumber,
+          field: 'project',
+          message: 'Project is required',
+        })
+        continue
+      }
+
+      const project = await Project.query()
+        .where('tenant_id', tenant.id)
+        .where('name', projectName)
+        .first()
+
+      if (!project) {
+        errors.push({
+          row: rowNumber,
+          field: 'project',
+          message: 'Project not found',
+        })
+        continue
+      }
+
+      // Find or create task
+      const taskTitle = record['Task']?.trim()
+      if (!taskTitle) {
+        errors.push({
+          row: rowNumber,
+          field: 'task',
+          message: 'Task is required',
+        })
+        continue
+      }
+
+      let task = await Task.query()
+        .where('project_id', project.id)
+        .where('title', taskTitle)
+        .first()
+
+      if (!task) {
+        // Auto-create task with sensible defaults
+        const maxPosition = await Task.query()
+          .where('project_id', project.id)
+          .max('position as max')
+
+        const position = (maxPosition[0].$extras.max || 0) + 1
+
+        task = await Task.create({
+          projectId: project.id,
+          title: taskTitle,
+          description: `Auto-created from CSV import on ${DateTime.now().toFormat('yyyy-MM-dd')}`,
+          status: 'in_progress',
+          priority: 'medium',
+          position,
+          createdBy: user.id,
+          assigneeId: user.id,
+          actualHours: 0,
+          estimatedHours: null,
+          dueDate: null,
+          blockedBy: null,
+        })
+
+        // Track auto-created task
+        autoCreatedTasks.push(`${projectName} > ${taskTitle}`)
+      }
+
+      // Calculate duration
+      let durationMinutes: number
+      const startTimeStr = record['Start Time']?.trim()
+      const endTimeStr = record['End Time']?.trim()
+      const durationStr = record['Duration (minutes)']?.trim()
+
+      if (startTimeStr && endTimeStr) {
+        // Parse times and calculate duration
+        const [startHour, startMinute] = startTimeStr.split(':').map(Number)
+        const [endHour, endMinute] = endTimeStr.split(':').map(Number)
+
+        const date = DateTime.fromISO(dateStr)
+        const startTime = date.set({ hour: startHour, minute: startMinute })
+        const endTime = date.set({ hour: endHour, minute: endMinute })
+
+        if (endTime <= startTime) {
+          errors.push({
+            row: rowNumber,
+            field: 'time',
+            message: 'End time must be after start time',
+          })
+          continue
+        }
+
+        durationMinutes = endTime.diff(startTime, 'minutes').minutes
+      } else if (durationStr) {
+        durationMinutes = Number.parseInt(durationStr)
+        if (isNaN(durationMinutes) || durationMinutes <= 0) {
+          errors.push({
+            row: rowNumber,
+            field: 'duration',
+            message: 'Duration must be a positive number',
+          })
+          continue
+        }
+      } else {
+        errors.push({
+          row: rowNumber,
+          field: 'duration',
+          message: 'Either start/end times or duration is required',
+        })
+        continue
+      }
+
+      // Parse billable flag
+      const billableStr = record['Billable']?.trim().toLowerCase()
+      const billable = ['yes', 'true', '1'].includes(billableStr) || !billableStr
+
+      // Parse notes
+      const notes = record['Notes']?.trim() || null
+
+      validRecords.push({
+        taskId: task.id,
+        date: DateTime.fromISO(dateStr),
+        startTime: startTimeStr ? record['Start Time'] : null,
+        endTime: endTimeStr ? record['End Time'] : null,
+        durationMinutes,
+        description,
+        notes,
+        billable,
+      })
+
+      taskIdsToUpdate.add(task.id)
+    }
+
+    // If not skipping invalid and there are errors, return all errors
+    if (!skipInvalid && errors.length > 0) {
+      return response.unprocessableEntity({
+        success: false,
+        imported: 0,
+        failed: errors.length,
+        errors,
+      })
+    }
+
+    // Import valid records in a transaction
+    let importedCount = 0
+    if (validRecords.length > 0) {
+      await db.transaction(async (trx) => {
+        for (const record of validRecords) {
+          await TimeEntry.create(
+            {
+              taskId: record.taskId,
+              userId: user.id,
+              date: record.date,
+              startTime: record.startTime
+                ? DateTime.fromISO(`${record.date.toISODate()}T${record.startTime}:00`)
+                : null,
+              endTime: record.endTime
+                ? DateTime.fromISO(`${record.date.toISODate()}T${record.endTime}:00`)
+                : null,
+              durationMinutes: record.durationMinutes,
+              description: record.description,
+              notes: record.notes,
+              billable: record.billable,
+              isRunning: false,
+            },
+            { client: trx }
+          )
+          importedCount++
+        }
+      })
+
+      // Update task actual hours for all affected tasks
+      for (const taskId of taskIdsToUpdate) {
+        await this.updateTaskActualHours(taskId)
+      }
+    }
+
+    return response.created({
+      success: true,
+      imported: importedCount,
+      failed: errors.length,
+      ...(errors.length > 0 && { errors }),
+      ...(autoCreatedTasks.length > 0 && { tasksCreated: autoCreatedTasks }),
+    })
   }
 
   /**
