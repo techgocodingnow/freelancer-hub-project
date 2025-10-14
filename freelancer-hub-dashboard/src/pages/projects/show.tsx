@@ -19,6 +19,7 @@ import {
   Table,
   Avatar,
   Tooltip,
+  InputNumber,
 } from "antd";
 import {
   EditOutlined,
@@ -133,6 +134,24 @@ export const ProjectShow: React.FC = () => {
     fetchProjectInvitations();
   };
 
+  const handleUpdateMemberRate = async (
+    memberId: number,
+    rate: number | null
+  ) => {
+    if (!id) return;
+
+    try {
+      await Api.updateProjectMemberRate(parseInt(id), memberId, {
+        hourlyRate: rate,
+      });
+      message.success("Member hourly rate updated");
+      // Refetch project data to show updated rate
+      window.location.reload();
+    } catch (err) {
+      message.error(getErrorMessage(err));
+    }
+  };
+
   const handleDelete = () => {
     confirm({
       title: "Are you sure you want to delete this project?",
@@ -239,6 +258,47 @@ export const ProjectShow: React.FC = () => {
       dataIndex: "joinedAt",
       key: "joinedAt",
       render: (date: string) => new Date(date).toLocaleDateString(),
+    },
+    {
+      title: "Hourly Rate",
+      key: "hourlyRate",
+      render: (_: any, record: any) => {
+        const projectRate = record.hourlyRate;
+        const defaultRate = record.user?.hourlyRate;
+        const effectiveRate = projectRate ?? defaultRate;
+
+        return (
+          <Space direction="vertical" size={0}>
+            {isAdmin ? (
+              <InputNumber
+                value={projectRate}
+                placeholder={
+                  defaultRate ? `Default: $${defaultRate}` : "No default"
+                }
+                prefix="$"
+                min={0.01}
+                step={0.01}
+                style={{ width: 140 }}
+                onChange={(value) => handleUpdateMemberRate(record.id, value)}
+              />
+            ) : effectiveRate ? (
+              <Text>${effectiveRate}/hr</Text>
+            ) : (
+              <Text type="secondary">Not set</Text>
+            )}
+            {projectRate && defaultRate && projectRate !== defaultRate && (
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                Override (default: ${defaultRate})
+              </Text>
+            )}
+            {!projectRate && defaultRate && (
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                Using default rate
+              </Text>
+            )}
+          </Space>
+        );
+      },
     },
   ];
 

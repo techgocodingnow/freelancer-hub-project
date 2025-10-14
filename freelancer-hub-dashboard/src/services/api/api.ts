@@ -152,6 +152,13 @@ class Api {
     );
   }
 
+  updateProjectMemberRate(projectId: number, memberId: number, data: { hourlyRate: number | null }) {
+    return this._privateInstance.patch(
+      `/projects/${projectId}/members/${memberId}`,
+      data
+    );
+  }
+
   // Tasks
   getTasks(projectId: number) {
     return this._privateInstance.get(
