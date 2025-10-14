@@ -2,10 +2,12 @@ import type { HttpContext } from '@adonisjs/core/http'
 import Invoice from '#models/invoice'
 import InvoiceItem from '#models/invoice_item'
 import TimeEntry from '#models/time_entry'
+import Customer from '#models/customer'
 import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
 import pdfService from '#services/pdf_service'
 import emailService from '#services/email_service'
+import { createInvoiceValidator } from '#validators/invoices'
 
 export default class InvoicesController {
   /**
@@ -19,6 +21,7 @@ export default class InvoicesController {
       .where('tenant_id', tenant.id)
       .preload('user')
       .preload('project')
+      .preload('customer')
       .preload('items')
       .preload('payments')
 
@@ -63,6 +66,7 @@ export default class InvoicesController {
       .where('tenant_id', tenant.id)
       .preload('user')
       .preload('project')
+      .preload('customer')
       .preload('items', (query) => {
         query.preload('timeEntry')
       })
@@ -74,6 +78,91 @@ export default class InvoicesController {
     }
 
     return response.ok(invoice)
+  }
+
+  /**
+   * Create a manual invoice
+   */
+  async store({ tenant, auth, request, response }: HttpContext) {
+    const user = auth.getUserOrFail()
+    const data = await request.validateUsing(createInvoiceValidator)
+
+    // Get customer details
+    const customer = await Customer.query()
+      .where('id', data.customerId)
+      .where('tenant_id', tenant.id)
+      .first()
+
+    if (!customer) {
+      return response.notFound({ error: 'Customer not found' })
+    }
+
+    // Calculate totals from line items
+    const subtotal = data.items.reduce((sum, item) => {
+      return sum + item.quantity * item.unitPrice
+    }, 0)
+
+    const taxRate = 0
+    const taxAmount = 0
+    const discountAmount = 0
+    const totalAmount = subtotal + taxAmount - discountAmount
+
+    // Generate invoice number
+    const invoiceCount = await Invoice.query().where('tenant_id', tenant.id).count('* as total')
+    const invoiceNumber = `INV-${String(Number(invoiceCount[0].$extras.total) + 1).padStart(5, '0')}`
+
+    // Prepare client info from customer
+    const clientAddress = [
+      customer.addressLine1,
+      customer.addressLine2,
+      customer.city,
+      customer.state,
+      customer.postalCode,
+      customer.country,
+    ]
+      .filter(Boolean)
+      .join(', ')
+
+    // Create invoice
+    const invoice = await Invoice.create({
+      tenantId: tenant.id,
+      userId: user.id,
+      projectId: null,
+      customerId: customer.id,
+      invoiceNumber,
+      status: 'draft',
+      issueDate: DateTime.now(),
+      dueDate: DateTime.now().plus({ days: 30 }),
+      subtotal,
+      taxRate,
+      taxAmount,
+      discountAmount,
+      totalAmount,
+      amountPaid: 0,
+      currency: 'USD',
+      clientName: customer.name,
+      clientEmail: customer.email,
+      clientAddress: clientAddress || null,
+    })
+
+    // Create invoice items
+    for (const item of data.items) {
+      await InvoiceItem.create({
+        invoiceId: invoice.id,
+        description: item.description,
+        quantity: item.quantity,
+        unit: 'unit',
+        unitPrice: item.unitPrice,
+        amount: item.quantity * item.unitPrice,
+      })
+    }
+
+    // Load relationships
+    await invoice.load('user')
+    await invoice.load('customer')
+    await invoice.load('items')
+
+    return response.created({ data: invoice })
   }
 
   /**
@@ -131,11 +220,43 @@ export default class InvoicesController {
     const invoiceCount = await Invoice.query().where('tenant_id', tenant.id).count('* as total')
     const invoiceNumber = `INV-${String(Number(invoiceCount[0].$extras.total) + 1).padStart(5, '0')}`
 
+    // Get customer from project if available
+    let customerId = null
+    let clientName = null
+    let clientEmail = null
+    let clientAddress = null
+
+    if (projectId) {
+      const project = await db
+        .from('projects')
+        .leftJoin('customers', 'projects.customer_id', 'customers.id')
+        .where('projects.id', projectId)
+        .select('customers.*')
+        .first()
+
+      if (project) {
+        customerId = project.id
+        clientName = project.name
+        clientEmail = project.email
+        clientAddress = [
+          project.address_line1,
+          project.address_line2,
+          project.city,
+          project.state,
+          project.postal_code,
+          project.country,
+        ]
+          .filter(Boolean)
+          .join(', ')
+      }
+    }
+
     // Create invoice
     const invoice = await Invoice.create({
       tenantId: tenant.id,
       userId,
       projectId: projectId || null,
+      customerId,
       invoiceNumber,
       status: 'draft',
       issueDate: DateTime.now(),
@@ -148,6 +269,9 @@ export default class InvoicesController {
       amountPaid: 0,
       notes,
       currency: 'USD',
+      clientName,
+      clientEmail,
+      clientAddress,
     })
 
     // Create invoice items from time entries
@@ -166,6 +290,7 @@ export default class InvoicesController {
     // Load relationships
     await invoice.load('user')
     await invoice.load('project')
+    await invoice.load('customer')
     await invoice.load('items')
 
     return response.created({ data: invoice })

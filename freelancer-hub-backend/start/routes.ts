@@ -30,6 +30,7 @@ const NotificationsController = () => import('#controllers/notifications_control
 const ElectricProxyController = () => import('#controllers/electric_proxy_controller')
 const NotificationPreferencesController = () =>
   import('#controllers/notification_preferences_controller')
+const CustomersController = () => import('#controllers/customers')
 
 // Health check (outside API versioning for monitoring)
 router.get('/', async () => {
@@ -147,6 +148,7 @@ router
 
         // Invoices
         router.get('/invoices', [InvoicesController, 'index'])
+        router.post('/invoices', [InvoicesController, 'store'])
         router.get('/invoices/:id', [InvoicesController, 'show'])
         router.post('/invoices/generate', [InvoicesController, 'generateFromTimeEntries'])
         router.patch('/invoices/:id/status', [InvoicesController, 'updateStatus'])
@@ -167,6 +169,15 @@ router
         router.post('/payroll/batches', [PayrollController, 'store'])
         router.post('/payroll/batches/:id/process', [PayrollController, 'process'])
         router.delete('/payroll/batches/:id', [PayrollController, 'destroy'])
+
+        // Customers
+        router.get('/customers', [CustomersController, 'index'])
+        router.get('/customers/search', [CustomersController, 'search'])
+        router.get('/customers/:id', [CustomersController, 'show'])
+        router.post('/customers', [CustomersController, 'store'])
+        router.put('/customers/:id', [CustomersController, 'update'])
+        router.patch('/customers/:id', [CustomersController, 'update'])
+        router.delete('/customers/:id', [CustomersController, 'destroy'])
 
         // Users (tenant-scoped with role-based access)
         router.get('/users', [UsersController, 'index'])
