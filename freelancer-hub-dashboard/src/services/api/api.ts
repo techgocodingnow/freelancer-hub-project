@@ -464,8 +464,11 @@ class Api {
   }
 
   createInvoice(data: {
-    customerId: number;
+    customerId?: number;
+    projectId?: number;
     duration: "1week" | "2weeks" | "1month";
+    hourlyRate?: number;
+    toEmail?: string;
     items: Array<{
       description: string;
       quantity: number;
@@ -473,6 +476,16 @@ class Api {
     }>;
   }) {
     return this._privateInstance.post(ENDPOINTS.invoices.create, data);
+  }
+
+  getProjectTimeSummary(
+    projectId: number,
+    params?: { startDate?: string; endDate?: string }
+  ) {
+    return this._privateInstance.get(
+      `/projects/${projectId}/time-summary`,
+      { params }
+    );
   }
 
   generateInvoiceFromTimeEntries(data: any) {
