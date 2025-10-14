@@ -1,11 +1,12 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany } from '@adonisjs/lucid/orm'
-import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, hasMany, manyToMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import Tenant from '#models/tenant'
 import User from '#models/user'
 import Project from '#models/project'
 import InvoiceItem from '#models/invoice_item'
 import Payment from '#models/payment'
+import Customer from '#models/customer'
 
 export default class Invoice extends BaseModel {
   @column({ isPrimary: true })
@@ -19,6 +20,9 @@ export default class Invoice extends BaseModel {
 
   @column()
   declare projectId: number | null
+
+  @column()
+  declare customerId: number | null
 
   @column()
   declare invoiceNumber: string
@@ -111,6 +115,17 @@ export default class Invoice extends BaseModel {
 
   @belongsTo(() => Project)
   declare project: BelongsTo<typeof Project>
+
+  @belongsTo(() => Customer)
+  declare customer: BelongsTo<typeof Customer>
+
+  @manyToMany(() => Project, {
+    pivotTable: 'invoice_projects',
+    pivotForeignKey: 'invoice_id',
+    pivotRelatedForeignKey: 'project_id',
+    pivotColumns: ['hourly_rate'],
+  })
+  declare projects: ManyToMany<typeof Project>
 
   @hasMany(() => InvoiceItem)
   declare items: HasMany<typeof InvoiceItem>
