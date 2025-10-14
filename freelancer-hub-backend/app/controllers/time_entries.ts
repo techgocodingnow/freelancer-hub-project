@@ -753,7 +753,7 @@ export default class TimeEntriesController {
         continue
       }
 
-      // Find or create task
+      // Find task (don't create yet - wait for import phase)
       const taskTitle = record['Task']?.trim()
       if (!taskTitle) {
         errors.push({
@@ -764,37 +764,10 @@ export default class TimeEntriesController {
         continue
       }
 
-      let task = await Task.query()
+      const task = await Task.query()
         .where('project_id', project.id)
         .where('title', taskTitle)
         .first()
-
-      if (!task) {
-        // Auto-create task with sensible defaults
-        const maxPosition = await Task.query()
-          .where('project_id', project.id)
-          .max('position as max')
-
-        const position = (maxPosition[0].$extras.max || 0) + 1
-
-        task = await Task.create({
-          projectId: project.id,
-          title: taskTitle,
-          description: `Auto-created from CSV import on ${DateTime.now().toFormat('yyyy-MM-dd')}`,
-          status: 'in_progress',
-          priority: 'medium',
-          position,
-          createdBy: user.id,
-          assigneeId: user.id,
-          actualHours: 0,
-          estimatedHours: null,
-          dueDate: null,
-          blockedBy: null,
-        })
-
-        // Track auto-created task
-        autoCreatedTasks.push(`${projectName} > ${taskTitle}`)
-      }
 
       // Calculate duration
       let durationMinutes: number
@@ -848,7 +821,10 @@ export default class TimeEntriesController {
       const notes = record['Notes']?.trim() || null
 
       validRecords.push({
-        taskId: task.id,
+        taskId: task?.id, // May be null if task needs to be created
+        taskTitle: taskTitle,
+        projectId: project.id,
+        projectName: projectName,
         date: DateTime.fromISO(dateStr),
         startTime: startTimeStr ? record['Start Time'] : null,
         endTime: endTimeStr ? record['End Time'] : null,
@@ -858,7 +834,9 @@ export default class TimeEntriesController {
         billable,
       })
 
-      taskIdsToUpdate.add(task.id)
+      if (task) {
+        taskIdsToUpdate.add(task.id)
+      }
     }
 
     // If not skipping invalid and there are errors, return all errors
@@ -875,10 +853,57 @@ export default class TimeEntriesController {
     let importedCount = 0
     if (validRecords.length > 0) {
       await db.transaction(async (trx) => {
+        // Track tasks created within this transaction
+        const taskCache = new Map<string, number>() // key: "projectId:taskTitle", value: taskId
+
         for (const record of validRecords) {
+          let taskId = record.taskId
+
+          // Create task if it doesn't exist (within transaction)
+          if (!taskId) {
+            const cacheKey = `${record.projectId}:${record.taskTitle}`
+
+            // Check if we already created this task in this transaction
+            if (taskCache.has(cacheKey)) {
+              taskId = taskCache.get(cacheKey)!
+            } else {
+              // Create the task
+              const maxPosition = await Task.query({ client: trx })
+                .where('project_id', record.projectId)
+                .max('position as max')
+
+              const position = (maxPosition[0].$extras.max || 0) + 1
+
+              const newTask = await Task.create(
+                {
+                  projectId: record.projectId,
+                  title: record.taskTitle,
+                  description: `Auto-created from CSV import on ${DateTime.now().toFormat('yyyy-MM-dd')}`,
+                  status: 'in_progress',
+                  priority: 'medium',
+                  position,
+                  createdBy: user.id,
+                  assigneeId: user.id,
+                  actualHours: 0,
+                  estimatedHours: null,
+                  dueDate: null,
+                  blockedBy: null,
+                },
+                { client: trx }
+              )
+
+              taskId = newTask.id
+              taskCache.set(cacheKey, taskId)
+
+              // Track auto-created task
+              autoCreatedTasks.push(`${record.projectName} > ${record.taskTitle}`)
+            }
+          }
+
+          // Create time entry
           await TimeEntry.create(
             {
-              taskId: record.taskId,
+              taskId: taskId,
               userId: user.id,
               date: record.date,
               startTime: record.startTime
@@ -895,11 +920,14 @@ export default class TimeEntriesController {
             },
             { client: trx }
           )
+
+          // Track task for updating actual hours
+          taskIdsToUpdate.add(taskId)
           importedCount++
         }
       })
 
-      // Update task actual hours for all affected tasks
+      // Update task actual hours for all affected tasks (after transaction completes)
       for (const taskId of taskIdsToUpdate) {
         await this.updateTaskActualHours(taskId)
       }
