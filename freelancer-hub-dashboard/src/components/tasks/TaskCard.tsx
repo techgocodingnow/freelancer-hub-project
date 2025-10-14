@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, Tag, Avatar, Space, Typography, Progress } from "antd";
+import { Card, Tag, Avatar, Space, Typography, Progress, theme } from "antd";
 import {
   UserOutlined,
   ClockCircleOutlined,
@@ -12,6 +12,7 @@ import { getPriorityColor, getDueDateColor } from "../../theme";
 import { tokens } from "../../theme/tokens";
 
 const { Text } = Typography;
+const { useToken } = theme;
 
 interface Task {
   id: number;
@@ -70,6 +71,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onClick,
   isDragging,
 }) => {
+  const { token } = useToken();
+  const isDarkMode = token.colorBgBase === '#141414'; // Simple dark mode detection
+
   const {
     attributes,
     listeners,
@@ -87,8 +91,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const overdue = isOverdue(task.dueDate);
-  const priorityColor = getPriorityColor(task.priority);
-  const dueDateColor = task.dueDate ? getDueDateColor(task.dueDate) : undefined;
+  const priorityColor = getPriorityColor(task.priority, isDarkMode);
+  const dueDateColor = task.dueDate ? getDueDateColor(task.dueDate, isDarkMode) : undefined;
   const progress = calculateProgress(task.subtasks);
 
   return (
@@ -103,6 +107,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           borderRadius: tokens.borderRadius.lg,
           boxShadow: tokens.shadows.xs,
           transition: `all ${tokens.transitions.normal}`,
+          backgroundColor: token.colorBgContainer,
+          borderColor: token.colorBorder,
         }}
         styles={{ body: { padding: tokens.spacing[3] } }}
       >
@@ -117,7 +123,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             style={{
               fontSize: tokens.typography.fontSize.xs,
               fontFamily: tokens.typography.fontFamily.mono,
-              color: tokens.colors.text.tertiary,
+              color: token.colorTextTertiary,
             }}
           >
             #{task.id}
@@ -134,6 +140,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               display: "-webkit-box",
               WebkitLineClamp: 2,
               WebkitBoxOrient: "vertical",
+              color: token.colorText,
             }}
           >
             {task.title}
@@ -144,7 +151,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             <div
               style={{
                 fontSize: tokens.typography.fontSize.sm,
-                color: tokens.colors.text.secondary,
+                color: token.colorTextSecondary,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 display: "-webkit-box",
@@ -163,9 +170,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               style={{
                 margin: 0,
                 fontSize: tokens.typography.fontSize.xs,
-                backgroundColor: `${priorityColor}15`,
+                backgroundColor: isDarkMode ? `${priorityColor}25` : `${priorityColor}15`,
                 color: priorityColor,
-                border: `1px solid ${priorityColor}40`,
+                border: `1px solid ${priorityColor}${isDarkMode ? '60' : '40'}`,
                 borderRadius: tokens.borderRadius.md,
               }}
             >
@@ -179,11 +186,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   margin: 0,
                   fontSize: tokens.typography.fontSize.xs,
                   backgroundColor: dueDateColor
-                    ? `${dueDateColor}15`
+                    ? isDarkMode ? `${dueDateColor}25` : `${dueDateColor}15`
                     : undefined,
                   color: dueDateColor,
                   border: dueDateColor
-                    ? `1px solid ${dueDateColor}40`
+                    ? `1px solid ${dueDateColor}${isDarkMode ? '60' : '40'}`
                     : undefined,
                   borderRadius: tokens.borderRadius.md,
                 }}
@@ -235,8 +242,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 percent={progress}
                 size="small"
                 showInfo={false}
-                strokeColor={tokens.colors.primary.main}
-                trailColor={tokens.colors.gray[200]}
+                strokeColor={token.colorPrimary}
+                trailColor={token.colorBgTextHover}
               />
               <Text
                 type="secondary"

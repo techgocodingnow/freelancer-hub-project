@@ -10,7 +10,6 @@ import {
   Card,
   Table,
   Button,
-  message,
   Typography,
   Space,
   Tag,
@@ -91,9 +90,8 @@ export const TimesheetsShow: React.FC = () => {
   const [isRejectModalOpen, setIsRejectModalOpen] = React.useState(false);
 
   const {
-    data: timesheetData,
-    isLoading,
-    refetch,
+    result: timesheetData,
+    query: { isLoading, refetch },
   } = useOne<Timesheet>({
     resource: "timesheets",
     id: id!,
@@ -131,18 +129,7 @@ export const TimesheetsShow: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.open({
-            type: "success",
-            content: "Timesheet approved successfully",
-          });
           refetch();
-        },
-        onError: (error: any) => {
-          message.open({
-            type: "error",
-            content:
-              error?.response?.data?.error || "Failed to approve timesheet",
-          });
         },
       }
     );
@@ -160,20 +147,9 @@ export const TimesheetsShow: React.FC = () => {
         },
         {
           onSuccess: () => {
-            message.open({
-              type: "success",
-              content: "Timesheet rejected",
-            });
             setIsRejectModalOpen(false);
             rejectForm.resetFields();
             refetch();
-          },
-          onError: (error: any) => {
-            message.open({
-              type: "error",
-              content:
-                error?.response?.data?.error || "Failed to reject timesheet",
-            });
           },
         }
       );
@@ -189,18 +165,7 @@ export const TimesheetsShow: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.open({
-            type: "success",
-            content: "Timesheet reopened",
-          });
           refetch();
-        },
-        onError: (error: any) => {
-          message.open({
-            type: "error",
-            content:
-              error?.response?.data?.error || "Failed to reopen timesheet",
-          });
         },
       }
     );

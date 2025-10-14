@@ -426,8 +426,6 @@ export default class TimeEntriesController {
    * Supports both task-scoped and global deletion
    */
   async destroy({ tenant, auth, params, response }: HttpContext) {
-    console.log('🚀 ~ TimeEntriesController ~ destroy ~ params:', params)
-    console.log('🚀 ~ TimeEntriesController ~ destroy ~ tenant:', tenant)
     const user = auth.getUserOrFail()
     const isTaskScoped = !!params.taskId
 

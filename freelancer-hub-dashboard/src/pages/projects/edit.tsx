@@ -10,7 +10,6 @@ import {
   Button,
   Card,
   Space,
-  message,
   Spin,
 } from "antd";
 import { SaveOutlined, CloseOutlined } from "@ant-design/icons";
@@ -68,19 +67,9 @@ export const ProjectEdit: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.open({
-            type: "success",
-            content: "Project updated successfully",
-          });
           go({
             to: `/tenants/${tenantSlug}/projects/${id}/show`,
             type: "push",
-          });
-        },
-        onError: (error: any) => {
-          message.open({
-            type: "error",
-            content: error?.message || "Failed to update project",
           });
         },
       }

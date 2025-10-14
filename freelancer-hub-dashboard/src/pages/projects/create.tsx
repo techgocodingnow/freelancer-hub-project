@@ -52,17 +52,7 @@ export const ProjectCreate: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.open({
-            type: "success",
-            content: "Project created successfully",
-          });
           go({ to: `/tenants/${tenantSlug}/projects`, type: "push" });
-        },
-        onError: (error: any) => {
-          message.open({
-            type: "error",
-            content: error?.message || "Failed to create project",
-          });
         },
       }
     );

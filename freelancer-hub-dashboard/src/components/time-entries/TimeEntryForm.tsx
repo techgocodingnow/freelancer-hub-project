@@ -12,8 +12,9 @@ import {
   InputNumber,
   Alert,
   FormInstance,
+  Popconfirm,
 } from "antd";
-import { SaveOutlined } from "@ant-design/icons";
+import { SaveOutlined, DeleteOutlined } from "@ant-design/icons";
 import { BaseRecord } from "@refinedev/core";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import dayjs, { Dayjs } from "dayjs";
@@ -45,6 +46,8 @@ export interface TimeEntryFormProps {
   onProjectChange: (projectId: number) => void;
   isLoadingProjects?: boolean;
   isLoadingTasks?: boolean;
+  onDelete?: () => void;
+  isDeleting?: boolean;
 }
 
 export const TimeEntryForm: React.FC<TimeEntryFormProps> = ({
@@ -58,6 +61,8 @@ export const TimeEntryForm: React.FC<TimeEntryFormProps> = ({
   tasks,
   selectedProject,
   onProjectChange,
+  onDelete,
+  isDeleting = false,
 }) => {
   const isMobile = useIsMobile();
   const [calculatedDuration, setCalculatedDuration] = useState<number | null>(
@@ -101,13 +106,13 @@ export const TimeEntryForm: React.FC<TimeEntryFormProps> = ({
 
   return (
     <>
-      <Alert
+      {/* <Alert
         message="Time Entry Options"
         description="You can either specify start and end times (which will auto-calculate duration), or directly enter the duration in minutes."
         type="info"
         showIcon
         style={{ marginBottom: 24 }}
-      />
+      /> */}
 
       <Form
         form={form}
@@ -254,6 +259,25 @@ export const TimeEntryForm: React.FC<TimeEntryFormProps> = ({
             <Button size="large" onClick={onCancel}>
               Cancel
             </Button>
+            {onDelete && (
+              <Popconfirm
+                title="Delete time entry"
+                description="Are you sure you want to delete this time entry? This action cannot be undone."
+                onConfirm={onDelete}
+                okText="Yes, delete"
+                cancelText="No, keep it"
+                okButtonProps={{ danger: true }}
+              >
+                <Button
+                  danger
+                  size="large"
+                  icon={<DeleteOutlined />}
+                  loading={isDeleting}
+                >
+                  Delete
+                </Button>
+              </Popconfirm>
+            )}
           </Space>
         </Form.Item>
       </Form>

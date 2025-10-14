@@ -21,20 +21,14 @@ import {
   ClockCircleOutlined,
 } from "@ant-design/icons";
 import { useList } from "@refinedev/core";
-import { useIsMobile, useIsTablet } from "../../hooks/useMediaQuery";
+import { useIsMobile } from "../../hooks/useMediaQuery";
 import { ResponsiveContainer } from "../../components/responsive";
 import dayjs, { Dayjs } from "dayjs";
 import {
-  BarChart,
-  Bar,
   PieChart,
   Pie,
   Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer as RechartsResponsiveContainer,
 } from "recharts";
 import { tokens } from "../../theme/tokens";
@@ -46,7 +40,6 @@ const COLORS = ["#52c41a", "#1890ff", "#faad14", "#f5222d", "#722ed1"];
 
 export const InvoicesPaymentsReport: React.FC = () => {
   const isMobile = useIsMobile();
-  const isTablet = useIsTablet();
 
   // Filters
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>([
@@ -92,23 +85,19 @@ export const InvoicesPaymentsReport: React.FC = () => {
   });
 
   // Fetch users for filter
-  const {
-    query: { data: usersData },
-  } = useList({
+  const { result: usersData } = useList({
     resource: "users",
     pagination: { pageSize: 100 },
   });
 
   // Fetch projects for filter
-  const {
-    query: { data: projectsData },
-  } = useList({
+  const { result: projectsData } = useList({
     resource: "projects",
     pagination: { pageSize: 100 },
   });
 
-  const invoices = (reportData as any)?.data?.data || [];
-  const summary = (reportData as any)?.data?.summary || {
+  const invoices = reportData?.data || [];
+  const summary = reportData?.summary || {
     totalInvoiced: 0,
     totalPaid: 0,
     totalOutstanding: 0,
@@ -308,7 +297,7 @@ export const InvoicesPaymentsReport: React.FC = () => {
             value={selectedUser}
             size={isMobile ? "middle" : "large"}
           >
-            {(usersData as any)?.data?.data.map((user: any) => (
+            {usersData?.data.map((user: any) => (
               <Select.Option key={user.id} value={user.id}>
                 {user.fullName}
               </Select.Option>
@@ -322,7 +311,7 @@ export const InvoicesPaymentsReport: React.FC = () => {
             value={selectedProject}
             size={isMobile ? "middle" : "large"}
           >
-            {(projectsData as any)?.data.map((project: any) => (
+            {projectsData?.data.map((project: any) => (
               <Select.Option key={project.id} value={project.id}>
                 {project.name}
               </Select.Option>

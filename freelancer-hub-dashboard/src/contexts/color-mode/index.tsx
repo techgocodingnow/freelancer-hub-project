@@ -4,6 +4,7 @@ import {
   createContext,
   useEffect,
   useState,
+  useContext,
 } from "react";
 import { lightTheme, darkTheme } from "../../theme";
 
@@ -15,6 +16,14 @@ type ColorModeContextType = {
 export const ColorModeContext = createContext<ColorModeContextType>(
   {} as ColorModeContextType
 );
+
+export const useColorMode = () => {
+  const context = useContext(ColorModeContext);
+  if (!context) {
+    throw new Error("useColorMode must be used within ColorModeContextProvider");
+  }
+  return context;
+};
 
 export const ColorModeContextProvider: React.FC<PropsWithChildren> = ({
   children,

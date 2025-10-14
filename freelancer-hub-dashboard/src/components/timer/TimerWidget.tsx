@@ -105,20 +105,10 @@ export const TimerWidget: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.open({
-            type: "success",
-            content: "Timer started",
-          });
           setIsModalOpen(false);
           setDescription("");
           setSelectedTaskId(undefined);
           refetch();
-        },
-        onError: (error: any) => {
-          message.open({
-            type: "error",
-            content: error?.message || "Failed to start timer",
-          });
         },
       }
     );
@@ -135,17 +125,7 @@ export const TimerWidget: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.open({
-            type: "success",
-            content: "Timer stopped",
-          });
           refetch();
-        },
-        onError: (error: any) => {
-          message.open({
-            type: "error",
-            content: error?.message || "Failed to stop timer",
-          });
         },
       }
     );

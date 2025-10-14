@@ -6,11 +6,9 @@ import {
   Input,
   Select,
   DatePicker,
-  InputNumber,
   Button,
   Card,
   Space,
-  message,
   Spin,
 } from "antd";
 import { SaveOutlined, CloseOutlined } from "@ant-design/icons";
@@ -18,6 +16,10 @@ import { useTenantSlug } from "../../contexts/tenant";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { ResponsiveContainer } from "../../components/responsive";
 import dayjs from "dayjs";
+import {
+  parseDurationToHours,
+  formatHoursToDuration,
+} from "../../utils/duration";
 
 const { TextArea } = Input;
 
@@ -57,7 +59,7 @@ export const TaskEdit: React.FC = () => {
         status: task.status,
         priority: task.priority,
         dueDate: task.dueDate ? dayjs(task.dueDate) : undefined,
-        estimatedHours: task.estimatedHours,
+        estimatedHours: formatHoursToDuration(task.estimatedHours) || "",
         assigneeId: task.assignee?.id,
       });
     }
@@ -70,7 +72,7 @@ export const TaskEdit: React.FC = () => {
       status: values.status,
       priority: values.priority,
       dueDate: values.dueDate?.format("YYYY-MM-DD"),
-      estimatedHours: values.estimatedHours,
+      estimatedHours: parseDurationToHours(values.estimatedHours),
       assigneeId: values.assigneeId,
     };
 
@@ -82,19 +84,9 @@ export const TaskEdit: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.open({
-            type: "success",
-            content: "Task updated successfully",
-          });
           go({
             to: `/tenants/${tenantSlug}/projects/${projectId}/tasks`,
             type: "push",
-          });
-        },
-        onError: (error: any) => {
-          message.open({
-            type: "error",
-            content: error?.message || "Failed to update task",
           });
         },
       }
@@ -176,13 +168,14 @@ export const TaskEdit: React.FC = () => {
             />
           </Form.Item>
 
-          <Form.Item label="Estimated Hours" name="estimatedHours">
-            <InputNumber
+          <Form.Item
+            label="Estimated Hours (e.g., 2h, 1d, 1w, 1h 30m)"
+            name="estimatedHours"
+          >
+            <Input
               style={{ width: "100%" }}
               size={isMobile ? "middle" : "large"}
-              min={0}
-              step={0.5}
-              placeholder="Enter estimated hours"
+              placeholder="e.g., 2h, 1d, 1w, 1h 30m"
             />
           </Form.Item>
 

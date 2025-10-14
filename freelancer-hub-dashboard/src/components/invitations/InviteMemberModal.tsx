@@ -23,6 +23,7 @@ import {
 import { Api } from "../../services/api";
 import type { Role, OrganizationMember } from "../../services/api/types";
 import { debounce } from "lodash";
+import { getErrorMessage } from "../../utils/error";
 
 const { Text } = Typography;
 
@@ -67,11 +68,10 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
     try {
       const response = await Api.getRoles();
       setRoles(response.data.data);
-    } catch (error: any) {
-      console.error("Failed to fetch roles:", error);
+    } catch (error) {
       message.open({
         type: "error",
-        content: "Failed to load roles",
+        content: getErrorMessage(error),
       });
     } finally {
       setLoadingRoles(false);
@@ -155,12 +155,10 @@ export const InviteMemberModal: React.FC<InviteMemberModalProps> = ({
       form.resetFields();
       onSuccess?.();
       onClose();
-    } catch (error: any) {
-      const errorMessage =
-        error?.response?.data?.error || "Failed to send invitation";
+    } catch (error) {
       message.open({
         type: "error",
-        content: errorMessage,
+        content: getErrorMessage(error),
       });
     } finally {
       setLoading(false);

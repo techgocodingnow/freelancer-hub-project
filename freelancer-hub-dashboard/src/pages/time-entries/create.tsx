@@ -82,7 +82,6 @@ export const TimeEntryCreate: React.FC = () => {
         },
         {
           onSuccess: () => {
-            message.success("Time entry created successfully");
             go({
               to: `/tenants/${tenantSlug}/time-entries`,
               type: "push",
@@ -112,7 +111,6 @@ export const TimeEntryCreate: React.FC = () => {
         },
         {
           onSuccess: () => {
-            message.success("Time entry created successfully");
             go({
               to: `/tenants/${tenantSlug}/time-entries`,
               type: "push",

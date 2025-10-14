@@ -20,10 +20,7 @@ import {
 } from "@ant-design/icons";
 import { useTenantSlug } from "../../contexts/tenant";
 import { useIsMobile, useIsTablet } from "../../hooks/useMediaQuery";
-import {
-  ResponsiveContainer,
-  ResponsiveGrid,
-} from "../../components/responsive";
+import { ResponsiveContainer } from "../../components/responsive";
 
 const { Title, Text } = Typography;
 
@@ -114,6 +111,7 @@ export const ProjectList: React.FC = () => {
             const completedTasks =
               project.tasks?.filter((t) => t.status === "done").length || 0;
 
+            const totalMembers = project.members?.length || 0;
             return (
               <Col xs={24} sm={12} lg={8} xl={6} key={project.id}>
                 <Card
@@ -200,7 +198,8 @@ export const ProjectList: React.FC = () => {
                         <Space>
                           <TeamOutlined />
                           <Text type="secondary">
-                            {project.members?.length || 0} members
+                            {totalMembers}{" "}
+                            {totalMembers === 1 ? "member" : "members"}
                           </Text>
                         </Space>
                       </Col>
@@ -213,14 +212,15 @@ export const ProjectList: React.FC = () => {
                       )}
                     </Row>
 
-                    {project.endDate && (
-                      <div>
-                        <ClockCircleOutlined style={{ marginRight: 8 }} />
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          Due: {new Date(project.endDate).toLocaleDateString()}
-                        </Text>
-                      </div>
-                    )}
+                    <div>
+                      <ClockCircleOutlined style={{ marginRight: 8 }} />
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        Due:{" "}
+                        {project.endDate
+                          ? new Date(project.endDate).toLocaleDateString()
+                          : "N/A"}
+                      </Text>
+                    </div>
                   </Space>
                 </Card>
               </Col>

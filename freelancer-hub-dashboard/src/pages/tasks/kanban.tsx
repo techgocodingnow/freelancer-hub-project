@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useList, useUpdate, useGo } from "@refinedev/core";
 import { useParams } from "react-router-dom";
-import { Space, Typography, Button, Select, Spin, Empty, message } from "antd";
+import { Space, Typography, Button, Select, Spin, Empty } from "antd";
 import {
   PlusOutlined,
   UnorderedListOutlined,
@@ -135,17 +135,7 @@ export const TaskKanban: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.open({
-            type: "success",
-            content: "Task status updated",
-          });
           refetch();
-        },
-        onError: (error: any) => {
-          message.open({
-            type: "error",
-            content: error?.message || "Failed to update task",
-          });
         },
       }
     );

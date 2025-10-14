@@ -1,21 +1,13 @@
 import React from "react";
 import { useCreate, useList, useGo } from "@refinedev/core";
 import { useParams } from "react-router-dom";
-import {
-  Form,
-  Input,
-  Select,
-  DatePicker,
-  InputNumber,
-  Button,
-  Card,
-  Space,
-  message,
-} from "antd";
+import { Form, Input, Select, DatePicker, Button, Card, Space } from "antd";
 import { SaveOutlined, CloseOutlined } from "@ant-design/icons";
 import { useTenantSlug } from "../../contexts/tenant";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { ResponsiveContainer } from "../../components/responsive";
+import { Dayjs } from "dayjs";
+import { parseDurationToHours } from "../../utils/duration";
 
 const { TextArea } = Input;
 
@@ -35,14 +27,22 @@ export const TaskCreate: React.FC = () => {
 
   const members = membersData?.data || [];
 
-  const onFinish = (values: any) => {
+  const onFinish = (values: {
+    title: string;
+    description: string;
+    status: string;
+    priority: string;
+    dueDate: Dayjs;
+    estimatedHours: string;
+    assigneeId: string;
+  }) => {
     const taskData = {
       title: values.title,
       description: values.description,
       status: values.status || "todo",
       priority: values.priority || "medium",
       dueDate: values.dueDate?.format("YYYY-MM-DD"),
-      estimatedHours: values.estimatedHours,
+      estimatedHours: parseDurationToHours(values.estimatedHours),
       assigneeId: values.assigneeId,
     };
 
@@ -53,19 +53,9 @@ export const TaskCreate: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.open({
-            type: "success",
-            content: "Task created successfully",
-          });
           go({
             to: `/tenants/${tenantSlug}/projects/${projectId}/tasks`,
             type: "push",
-          });
-        },
-        onError: (error: any) => {
-          message.open({
-            type: "error",
-            content: error?.message || "Failed to create task",
           });
         },
       }
@@ -122,7 +112,7 @@ export const TaskCreate: React.FC = () => {
               showSearch
               optionFilterProp="children"
             >
-              {members.map((member: any) => (
+              {members.map((member) => (
                 <Select.Option key={member.user.id} value={member.user.id}>
                   {member.user.fullName} ({member.user.email})
                 </Select.Option>
@@ -137,13 +127,14 @@ export const TaskCreate: React.FC = () => {
             />
           </Form.Item>
 
-          <Form.Item label="Estimated Hours" name="estimatedHours">
-            <InputNumber
+          <Form.Item
+            label="Estimated Hours (e.g., 2h, 1d, 1w, 1h 30m)"
+            name="estimatedHours"
+          >
+            <Input
               style={{ width: "100%" }}
               size={isMobile ? "middle" : "large"}
-              min={0}
-              step={0.5}
-              placeholder="Enter estimated hours"
+              placeholder="e.g., 2h, 1d, 1w, 1h 30m"
             />
           </Form.Item>
 

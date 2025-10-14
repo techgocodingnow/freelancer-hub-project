@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { Card, Badge, Typography, Button } from "antd";
+import { Card, Badge, Typography, Button, theme } from "antd";
 import { useDroppable } from "@dnd-kit/core";
 import { UpOutlined, DownOutlined } from "@ant-design/icons";
 import { tokens } from "../../theme";
 
 const { Title } = Typography;
+const { useToken } = theme;
 
 interface DroppableColumnProps {
   id: string;
@@ -24,6 +25,8 @@ export const DroppableColumn: React.FC<DroppableColumnProps> = ({
   wipLimit,
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
+  const { token } = useToken();
+  const isDarkMode = token.colorBgBase === '#141414';
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isOverLimit = wipLimit ? count > wipLimit : false;
 
@@ -33,11 +36,11 @@ export const DroppableColumn: React.FC<DroppableColumnProps> = ({
         style={{
           height: "100%",
           backgroundColor: isOver
-            ? `${color}15`
-            : tokens.colors.background.paper,
+            ? `${color}${isDarkMode ? '25' : '15'}`
+            : token.colorBgContainer,
           border: isOver
             ? `2px dashed ${color}`
-            : `1px solid ${tokens.colors.border.default}`,
+            : `1px solid ${token.colorBorder}`,
           transition: `all ${tokens.transitions.normal}`,
           borderRadius: tokens.borderRadius.xl,
           boxShadow: isOver ? tokens.shadows.lg : tokens.shadows.sm,
@@ -79,7 +82,7 @@ export const DroppableColumn: React.FC<DroppableColumnProps> = ({
                   fontSize: tokens.typography.fontSize.xs,
                   color: isOverLimit
                     ? tokens.colors.semantic.error
-                    : tokens.colors.text.tertiary,
+                    : token.colorTextTertiary,
                 }}
               >
                 (Limit: {wipLimit})
@@ -108,7 +111,7 @@ export const DroppableColumn: React.FC<DroppableColumnProps> = ({
             style={{
               textAlign: "center",
               padding: tokens.spacing[2],
-              color: tokens.colors.text.tertiary,
+              color: token.colorTextTertiary,
               fontSize: tokens.typography.fontSize.sm,
             }}
           >

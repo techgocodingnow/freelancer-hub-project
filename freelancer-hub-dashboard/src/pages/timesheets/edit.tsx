@@ -155,39 +155,22 @@ export const TimesheetsEdit: React.FC = () => {
   };
 
   const handleSave = () => {
-    updateTimesheet(
-      {
-        resource: "timesheets",
-        id: id!,
-        values: {
-          timeEntries: timeEntries.map((entry) => ({
-            id: entry.id,
-            taskId: entry.taskId,
-            date: entry.date,
-            startTime: entry.startTime,
-            endTime: entry.endTime,
-            durationMinutes: entry.durationMinutes,
-            billable: entry.billable,
-            notes: entry.notes,
-          })),
-        },
+    updateTimesheet({
+      resource: "timesheets",
+      id: id!,
+      values: {
+        timeEntries: timeEntries.map((entry) => ({
+          id: entry.id,
+          taskId: entry.taskId,
+          date: entry.date,
+          startTime: entry.startTime,
+          endTime: entry.endTime,
+          durationMinutes: entry.durationMinutes,
+          billable: entry.billable,
+          notes: entry.notes,
+        })),
       },
-      {
-        onSuccess: () => {
-          message.open({
-            type: "success",
-            content: "Timesheet updated successfully",
-          });
-        },
-        onError: (error: any) => {
-          message.open({
-            type: "error",
-            content:
-              error?.response?.data?.error || "Failed to update timesheet",
-          });
-        },
-      }
-    );
+    });
   };
 
   const handleSubmit = () => {

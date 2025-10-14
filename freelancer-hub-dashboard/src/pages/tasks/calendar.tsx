@@ -1,15 +1,10 @@
-/**
- * Task Calendar View
- * Displays tasks in a calendar format with drag-and-drop rescheduling
- */
-
 import React, { useMemo, useState, useCallback } from "react";
 import { useList, useGo } from "@refinedev/core";
 import { useParams } from "react-router-dom";
 import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { enUS } from "date-fns/locale";
-import { Button, Space, Typography, Tag, Spin } from "antd";
+import { Button, Space, Typography, Tag, Spin, theme } from "antd";
 import {
   LeftOutlined,
   RightOutlined,
@@ -24,6 +19,7 @@ import { ResponsiveContainer } from "../../components/responsive";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
 const { Title } = Typography;
+const { useToken } = theme;
 
 // Setup the localizer for react-big-calendar
 const locales = {
@@ -65,6 +61,8 @@ export const TaskCalendar: React.FC = () => {
   const go = useGo();
   const isMobile = useIsMobile();
   const isTablet = useIsTablet();
+  const { token } = useToken();
+  const isDarkMode = token.colorBgBase === '#141414';
 
   const [view, setView] = useState<View>(isMobile ? "agenda" : "month");
   const [date, setDate] = useState(new Date());
@@ -111,20 +109,20 @@ export const TaskCalendar: React.FC = () => {
   // Custom event style getter
   const eventStyleGetter = useCallback((event: CalendarEvent) => {
     const task = event.resource;
-    const priorityColor = getPriorityColor(task.priority);
-    const statusColor = getStatusColor(task.status);
+    const priorityColor = getPriorityColor(task.priority, isDarkMode);
+    const statusColor = getStatusColor(task.status, isDarkMode);
 
     return {
       style: {
-        backgroundColor: `${priorityColor}20`,
+        backgroundColor: `${priorityColor}${isDarkMode ? '25' : '20'}`,
         borderLeft: `4px solid ${priorityColor}`,
-        color: tokens.colors.text.primary,
+        color: token.colorText,
         borderRadius: tokens.borderRadius.md,
         padding: "2px 4px",
         fontSize: tokens.typography.fontSize.xs,
       },
     };
-  }, []);
+  }, [isDarkMode, token.colorText]);
 
   // Custom toolbar
   const CustomToolbar = (toolbar: any) => {
@@ -160,7 +158,7 @@ export const TaskCalendar: React.FC = () => {
           alignItems: isMobile ? "stretch" : "center",
           marginBottom: tokens.spacing[4],
           padding: tokens.spacing[4],
-          backgroundColor: tokens.colors.background.paper,
+          backgroundColor: token.colorBgContainer,
           borderRadius: tokens.borderRadius.lg,
           gap: isMobile ? tokens.spacing[2] : 0,
         }}
@@ -284,13 +282,14 @@ export const TaskCalendar: React.FC = () => {
       {/* Calendar */}
       <div
         style={{
-          backgroundColor: tokens.colors.background.default,
+          backgroundColor: token.colorBgElevated,
           borderRadius: tokens.borderRadius.xl,
           padding: isMobile ? tokens.spacing[2] : tokens.spacing[4],
           boxShadow: tokens.shadows.sm,
           minHeight: isMobile ? "400px" : "600px",
           overflowX: isMobile ? "auto" : undefined,
         }}
+        className={isDarkMode ? "rbc-dark-mode" : ""}
       >
         <Calendar
           localizer={localizer}
@@ -315,16 +314,16 @@ export const TaskCalendar: React.FC = () => {
         style={{
           marginTop: tokens.spacing[4],
           padding: tokens.spacing[4],
-          backgroundColor: tokens.colors.background.paper,
+          backgroundColor: token.colorBgContainer,
           borderRadius: tokens.borderRadius.lg,
         }}
       >
         <Space wrap>
           <span style={{ fontWeight: 600 }}>Priority:</span>
-          <Tag color={getPriorityColor("urgent")}>Urgent</Tag>
-          <Tag color={getPriorityColor("high")}>High</Tag>
-          <Tag color={getPriorityColor("medium")}>Medium</Tag>
-          <Tag color={getPriorityColor("low")}>Low</Tag>
+          <Tag color={getPriorityColor("urgent", isDarkMode)}>Urgent</Tag>
+          <Tag color={getPriorityColor("high", isDarkMode)}>High</Tag>
+          <Tag color={getPriorityColor("medium", isDarkMode)}>Medium</Tag>
+          <Tag color={getPriorityColor("low", isDarkMode)}>Low</Tag>
         </Space>
       </div>
     </ResponsiveContainer>

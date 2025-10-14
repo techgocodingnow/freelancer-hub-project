@@ -1,14 +1,6 @@
 import React, { useState } from "react";
 import { useGo, useCreate } from "@refinedev/core";
-import {
-  Card,
-  Form,
-  DatePicker,
-  Button,
-  message,
-  Typography,
-  Space,
-} from "antd";
+import { Card, Form, DatePicker, Button, Typography, Space } from "antd";
 import { SaveOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import { useTenantSlug } from "../../contexts/tenant";
 import { useIsMobile } from "../../hooks/useMediaQuery";
@@ -25,7 +17,10 @@ export const TimesheetsCreate: React.FC = () => {
   const go = useGo();
   const isMobile = useIsMobile();
   const [form] = Form.useForm();
-  const { mutate: createTimesheet, isLoading } = useCreate();
+  const {
+    mutate: createTimesheet,
+    mutation: { isPending },
+  } = useCreate();
 
   const [selectedWeek, setSelectedWeek] = useState<Dayjs | null>(null);
 
@@ -55,20 +50,9 @@ export const TimesheetsCreate: React.FC = () => {
       },
       {
         onSuccess: (data) => {
-          message.open({
-            type: "success",
-            content: "Timesheet created successfully",
-          });
           go({
             to: `/tenants/${tenantSlug}/timesheets/${data.data.data.id}/edit`,
             type: "push",
-          });
-        },
-        onError: (error: any) => {
-          message.open({
-            type: "error",
-            content:
-              error?.response?.data?.error || "Failed to create timesheet",
           });
         },
       }
@@ -152,7 +136,7 @@ export const TimesheetsCreate: React.FC = () => {
                 type="primary"
                 htmlType="submit"
                 icon={<SaveOutlined />}
-                loading={isLoading}
+                loading={isPending}
                 size="large"
               >
                 Create Timesheet

@@ -7,7 +7,6 @@ import {
   Select,
   DatePicker,
   Typography,
-  Tag,
   Statistic,
   Row,
   Col,
@@ -19,7 +18,6 @@ import {
   DownloadOutlined,
   DollarOutlined,
   ClockCircleOutlined,
-  FileTextOutlined,
 } from "@ant-design/icons";
 import { useList } from "@refinedev/core";
 import { useTenant } from "../../contexts/tenant";
@@ -42,9 +40,7 @@ const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 export const PaymentsReport: React.FC = () => {
-  const { tenant } = useTenant();
   const isMobile = useIsMobile();
-  const isTablet = useIsTablet();
 
   // Filters
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>([
@@ -57,7 +53,8 @@ export const PaymentsReport: React.FC = () => {
 
   // Fetch time summary
   const {
-    query: { data: timeSummaryData, isLoading },
+    result: timeSummaryData,
+    query: { isLoading },
   } = useList({
     resource: "reports/time-summary",
     filters: [
@@ -87,36 +84,32 @@ export const PaymentsReport: React.FC = () => {
   });
 
   // Fetch users for filter
-  const {
-    query: { data: usersData },
-  } = useList({
+  const { result: usersData } = useList({
     resource: "users",
     pagination: { pageSize: 100 },
   });
 
   // Fetch projects for filter
-  const {
-    query: { data: projectsData },
-  } = useList({
+  const { result: projectsData } = useList({
     resource: "projects",
     pagination: { pageSize: 100 },
   });
 
-  const summaryData = (timeSummaryData as any)?.data || {};
-  const byUser = summaryData.byUser || [];
-  const byProject = summaryData.byProject || [];
-  const totals = summaryData.totals || { totalHours: 0 };
+  const summaryData = timeSummaryData?.data || {};
+  const byUser = summaryData?.byUser || [];
+  const byProject = summaryData?.byProject || [];
+  const totals = summaryData?.totals || { totalHours: 0 };
 
   // Calculate payment amounts
   const paymentsByUser = useMemo(() => {
-    return byUser.map((user: any) => ({
+    return byUser.map((user) => ({
       ...user,
       billableAmount: user.totalHours * hourlyRate,
     }));
   }, [byUser, hourlyRate]);
 
   const paymentsByProject = useMemo(() => {
-    return byProject.map((project: any) => ({
+    return byProject.map((project) => ({
       ...project,
       billableAmount: project.totalHours * hourlyRate,
     }));
@@ -127,7 +120,7 @@ export const PaymentsReport: React.FC = () => {
   // Export to CSV
   const exportToCSV = () => {
     const headers = ["User", "Total Hours", "Hourly Rate", "Amount Due"];
-    const rows = paymentsByUser.map((user: any) => [
+    const rows = paymentsByUser.map((user) => [
       user.userName,
       user.totalHours.toFixed(2),
       hourlyRate.toFixed(2),
@@ -294,7 +287,7 @@ export const PaymentsReport: React.FC = () => {
             value={selectedUser}
             size={isMobile ? "middle" : "large"}
           >
-            {((usersData as any)?.data || []).map((user: any) => (
+            {(usersData?.data || []).map((user) => (
               <Select.Option key={user.id} value={user.id}>
                 {user.fullName}
               </Select.Option>
@@ -308,7 +301,7 @@ export const PaymentsReport: React.FC = () => {
             value={selectedProject}
             size={isMobile ? "middle" : "large"}
           >
-            {projectsData?.data.map((project: any) => (
+            {projectsData?.data.map((project) => (
               <Select.Option key={project.id} value={project.id}>
                 {project.name}
               </Select.Option>

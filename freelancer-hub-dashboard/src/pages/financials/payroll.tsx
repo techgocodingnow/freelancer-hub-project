@@ -44,7 +44,6 @@ export const PayrollManagement: React.FC = () => {
   // State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
-  const [selectedBatch, setSelectedBatch] = useState<any>(null);
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs]>([
     dayjs().startOf("month"),
     dayjs().endOf("month"),
@@ -70,7 +69,6 @@ export const PayrollManagement: React.FC = () => {
     resource: "users",
     pagination: { pageSize: 100 },
   });
-  console.log("🚀 ~ PayrollManagement ~ usersData:", usersData);
 
   // Create batch mutation
   const { mutate: createBatch } = useCreate();
@@ -85,8 +83,8 @@ export const PayrollManagement: React.FC = () => {
   // Custom mutation for calculating payroll
   const { mutate: calculatePayroll } = useCustomMutation();
 
-  const batches = (batchesData as any)?.data || [];
-  const users = (usersData as any)?.data || [];
+  const batches = batchesData?.data || [];
+  const users = usersData?.data || [];
 
   // Calculate payroll preview
   const handleCalculatePayroll = async () => {
@@ -115,10 +113,6 @@ export const PayrollManagement: React.FC = () => {
           setIsCalculating(false);
         },
         onError: () => {
-          message.open({
-            type: "error",
-            content: "Failed to calculate payroll",
-          });
           setIsCalculating(false);
         },
       }
@@ -150,10 +144,6 @@ export const PayrollManagement: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.open({
-            type: "success",
-            content: "Payroll batch created successfully",
-          });
           setIsCreateModalOpen(false);
           setIsPreviewModalOpen(false);
           setPayrollPreview(null);
@@ -162,10 +152,6 @@ export const PayrollManagement: React.FC = () => {
           refetchBatches();
         },
         onError: () => {
-          message.open({
-            type: "error",
-            content: "Failed to create payroll batch",
-          });
           setIsCreating(false);
         },
       }
@@ -195,17 +181,7 @@ export const PayrollManagement: React.FC = () => {
           },
           {
             onSuccess: () => {
-              message.open({
-                type: "success",
-                content: "Payroll batch processed successfully",
-              });
               refetchBatches();
-            },
-            onError: () => {
-              message.open({
-                type: "error",
-                content: "Failed to process payroll batch",
-              });
             },
           }
         );
@@ -228,17 +204,7 @@ export const PayrollManagement: React.FC = () => {
           },
           {
             onSuccess: () => {
-              message.open({
-                type: "success",
-                content: "Payroll batch deleted successfully",
-              });
               refetchBatches();
-            },
-            onError: () => {
-              message.open({
-                type: "error",
-                content: "Failed to delete payroll batch",
-              });
             },
           }
         );

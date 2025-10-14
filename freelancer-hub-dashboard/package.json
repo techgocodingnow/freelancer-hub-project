@@ -26,6 +26,7 @@
     "antd": "^5.27.4",
     "axios": "^1.12.2",
     "date-fns": "^4.1.0",
+    "parse-duration": "^2.1.4",
     "react": "^19.2.0",
     "react-big-calendar": "^1.19.4",
     "react-dom": "^19.2.0",

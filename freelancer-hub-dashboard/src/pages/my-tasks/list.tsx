@@ -134,17 +134,7 @@ export const MyTasksList: React.FC = () => {
           },
           {
             onSuccess: () => {
-              message.open({
-                type: "success",
-                content: "Task deleted successfully",
-              });
               refetch();
-            },
-            onError: () => {
-              message.open({
-                type: "error",
-                content: "Failed to delete task",
-              });
             },
           }
         );

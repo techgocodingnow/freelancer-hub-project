@@ -1,7 +1,7 @@
 import React from "react";
 import { Card, Form, message, Typography, Button, Spin } from "antd";
 import { ArrowLeftOutlined } from "@ant-design/icons";
-import { useUpdate, useOne, useList, useGo } from "@refinedev/core";
+import { useUpdate, useOne, useList, useGo, useDelete } from "@refinedev/core";
 import { useParams } from "react-router-dom";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { ResponsiveContainer } from "../../components/responsive";
@@ -24,6 +24,10 @@ export const TimeEntryEdit: React.FC = () => {
     mutate: updateEntry,
     mutation: { isPending: isUpdating },
   } = useUpdate();
+  const {
+    mutate: deleteEntry,
+    mutation: { isPending: isDeleting },
+  } = useDelete();
 
   // Fetch time entry
   const {
@@ -199,6 +203,26 @@ export const TimeEntryEdit: React.FC = () => {
     form.setFieldValue("taskId", undefined);
   };
 
+  const handleDelete = () => {
+    deleteEntry(
+      {
+        resource: "time-entries",
+        id: id!,
+      },
+      {
+        onSuccess: () => {
+          go({
+            to: `/tenants/${tenantSlug}/time-entries`,
+            type: "push",
+          });
+        },
+        onError: (error) => {
+          message.error(error?.message || "Failed to delete time entry");
+        },
+      }
+    );
+  };
+
   // Show loader while data is being fetched
   if (isLoading || !initialValues) {
     return (
@@ -238,6 +262,8 @@ export const TimeEntryEdit: React.FC = () => {
           tasks={tasksData?.data || []}
           selectedProject={selectedProject}
           onProjectChange={handleProjectChange}
+          onDelete={handleDelete}
+          isDeleting={isDeleting}
         />
       </Card>
     </ResponsiveContainer>

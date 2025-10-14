@@ -158,18 +158,8 @@ export const TimesheetsApprovals: React.FC = () => {
           },
           {
             onSuccess: () => {
-              message.open({
-                type: "success",
-                content: "Timesheet approved successfully",
-              });
               refetch();
               setSelectedRowKeys(selectedRowKeys.filter((key) => key !== id));
-            },
-            onError: () => {
-              message.open({
-                type: "error",
-                content: "Failed to approve timesheet",
-              });
             },
           }
         );
@@ -198,10 +188,6 @@ export const TimesheetsApprovals: React.FC = () => {
         },
         {
           onSuccess: () => {
-            message.open({
-              type: "success",
-              content: "Timesheet rejected",
-            });
             setIsRejectModalOpen(false);
             rejectForm.resetFields();
             setRejectingTimesheetId(null);
@@ -209,12 +195,6 @@ export const TimesheetsApprovals: React.FC = () => {
             setSelectedRowKeys(
               selectedRowKeys.filter((key) => key !== rejectingTimesheetId)
             );
-          },
-          onError: () => {
-            message.open({
-              type: "error",
-              content: "Failed to reject timesheet",
-            });
           },
         }
       );

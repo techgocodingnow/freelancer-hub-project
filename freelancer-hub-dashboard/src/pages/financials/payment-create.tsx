@@ -58,17 +58,13 @@ export const PaymentCreate: React.FC = () => {
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
 
   // Fetch users
-  const {
-    query: { data: usersData },
-  } = useList({
+  const { result: usersData } = useList({
     resource: "users",
     pagination: { pageSize: 100 },
   });
 
   // Fetch invoices
-  const {
-    query: { data: invoicesData },
-  } = useList({
+  const { result: invoicesData } = useList({
     resource: "invoices",
     pagination: { pageSize: 100 },
     filters: [
@@ -87,8 +83,8 @@ export const PaymentCreate: React.FC = () => {
   // Calculate amount from hours
   const { mutate: calculateFromHours } = useCustomMutation();
 
-  const users = (usersData as any)?.data || [];
-  const invoices = (invoicesData as any)?.data || [];
+  const users = usersData?.data || [];
+  const invoices = invoicesData?.data || [];
 
   // Calculate amount from time entries
   const handleCalculateAmount = () => {
@@ -115,7 +111,7 @@ export const PaymentCreate: React.FC = () => {
         meta: { resource: "payroll/calculate" },
       },
       {
-        onSuccess: (data: any) => {
+        onSuccess: (data) => {
           const calculation = data.data.data.calculations[0];
           if (calculation) {
             setCalculatedAmount(calculation.totalAmount);
@@ -135,10 +131,6 @@ export const PaymentCreate: React.FC = () => {
           setIsCalculating(false);
         },
         onError: () => {
-          message.open({
-            type: "error",
-            content: "Failed to calculate amount",
-          });
           setIsCalculating(false);
         },
       }
@@ -164,7 +156,7 @@ export const PaymentCreate: React.FC = () => {
 
   // Handle user selection
   const handleUserChange = (userId: number) => {
-    const user = users.find((u: any) => u.id === userId);
+    const user = users.find((u) => u.id === userId);
     setSelectedUser(user);
 
     // Fetch Wise account for selected user
@@ -174,7 +166,7 @@ export const PaymentCreate: React.FC = () => {
   };
 
   // Handle form submission
-  const handleSubmit = (values: any) => {
+  const handleSubmit = (values) => {
     setIsLoading(true);
     createPayment(
       {
@@ -189,18 +181,10 @@ export const PaymentCreate: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.open({
-            type: "success",
-            content: "Payment created successfully",
-          });
           setIsLoading(false);
           navigate(`/tenants/${slug}/financials/payments/history`);
         },
         onError: () => {
-          message.open({
-            type: "error",
-            content: "Failed to create payment",
-          });
           setIsLoading(false);
         },
       }
@@ -253,7 +237,7 @@ export const PaymentCreate: React.FC = () => {
                   onChange={handleUserChange}
                   suffixIcon={<UserOutlined />}
                 >
-                  {users.map((user: any) => (
+                  {users.map((user) => (
                     <Select.Option key={user.id} value={user.id}>
                       {user.fullName} ({user.email})
                     </Select.Option>

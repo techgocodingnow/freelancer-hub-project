@@ -39,6 +39,7 @@ import { ResponsiveContainer } from "../../components/responsive";
 import { InviteMemberModal } from "../../components/invitations";
 import { Api } from "../../services/api";
 import type { Invitation } from "../../services/api/types";
+import { getErrorMessage } from "../../utils/error";
 
 const { Title, Text } = Typography;
 const { confirm } = Modal;
@@ -82,7 +83,7 @@ export const ProjectShow: React.FC = () => {
         project_id: parseInt(id),
       });
       setProjectInvitations(response.data.data);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to fetch project invitations:", err);
     }
   };
@@ -95,10 +96,10 @@ export const ProjectShow: React.FC = () => {
         content: `Invitation resent to ${invitation.email}`,
       });
       fetchProjectInvitations();
-    } catch (err: any) {
+    } catch (err) {
       message.open({
         type: "error",
-        content: err?.response?.data?.error || "Failed to resend invitation",
+        content: getErrorMessage(err),
       });
     }
   };
@@ -118,11 +119,10 @@ export const ProjectShow: React.FC = () => {
             content: "Invitation cancelled",
           });
           fetchProjectInvitations();
-        } catch (err: any) {
+        } catch (err) {
           message.open({
             type: "error",
-            content:
-              err?.response?.data?.error || "Failed to cancel invitation",
+            content: getErrorMessage(err),
           });
         }
       },
@@ -149,17 +149,7 @@ export const ProjectShow: React.FC = () => {
           },
           {
             onSuccess: () => {
-              message.open({
-                type: "success",
-                content: "Project deleted successfully",
-              });
               go({ to: `/tenants/${tenantSlug}/projects`, type: "push" });
-            },
-            onError: (error: any) => {
-              message.open({
-                type: "error",
-                content: error?.message || "Failed to delete project",
-              });
             },
           }
         );
@@ -497,17 +487,6 @@ export const ProjectShow: React.FC = () => {
                       block={isMobile}
                     >
                       View All Tasks
-                    </Button>
-                    <Button
-                      onClick={() =>
-                        go({
-                          to: `/tenants/${tenantSlug}/projects/${id}/tasks/kanban`,
-                          type: "push",
-                        })
-                      }
-                      block={isMobile}
-                    >
-                      Kanban Board
                     </Button>
                   </Space>
                   <Table

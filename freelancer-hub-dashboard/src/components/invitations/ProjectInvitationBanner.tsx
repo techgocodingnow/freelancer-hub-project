@@ -4,12 +4,12 @@ import {
   TeamOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  UserAddOutlined,
 } from "@ant-design/icons";
 import { Api } from "../../services/api";
 import type { Invitation } from "../../services/api/types";
 import { useNavigate } from "react-router";
 import { useTenantSlug } from "../../contexts/tenant";
+import { getErrorMessage } from "../../utils/error";
 
 const { Text } = Typography;
 const { confirm } = Modal;
@@ -54,12 +54,10 @@ export const ProjectInvitationBanner: React.FC = () => {
           navigate(`/tenants/${tenantSlug}/projects/${invitation.project!.id}`);
         }, 1500);
       }
-    } catch (error: any) {
-      const errorMessage =
-        error?.response?.data?.error || "Failed to accept invitation";
+    } catch (error) {
       message.open({
         type: "error",
-        content: errorMessage,
+        content: getErrorMessage(error),
       });
     } finally {
       setLoading(false);

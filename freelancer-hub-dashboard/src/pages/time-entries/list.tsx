@@ -104,8 +104,8 @@ export const TimeEntriesList: React.FC = () => {
 
   // Fetch time entries using the new global endpoint
   const {
-    result: timeEntriesData,
-    query: { isLoading, refetch },
+    result,
+    query: { isLoading, refetch, data: timeEntriesData },
   } = useList<TimeEntry>({
     resource: "time-entries",
     filters: [
@@ -150,6 +150,8 @@ export const TimeEntriesList: React.FC = () => {
       pageSize: 50,
     },
   });
+  console.log("🚀 ~ TimeEntriesList ~ timeEntriesData:", timeEntriesData);
+  console.log("🚀 ~ TimeEntriesList ~ result:", result);
 
   // Fetch users for filter (admin only)
   const { result: usersData } = useList({
@@ -187,7 +189,6 @@ export const TimeEntriesList: React.FC = () => {
       },
       {
         onSuccess: () => {
-          message.success("Time entry deleted successfully");
           // Invalidate the time-entries list query to trigger a refetch
           invalidate({
             resource: "time-entries",

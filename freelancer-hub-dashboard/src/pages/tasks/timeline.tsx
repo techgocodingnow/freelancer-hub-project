@@ -1,8 +1,3 @@
-/**
- * Task Timeline View
- * Chronological visualization of tasks grouped by date
- */
-
 import React, { useMemo, useState } from "react";
 import { useList, useGo } from "@refinedev/core";
 import { useParams } from "react-router-dom";
@@ -17,6 +12,7 @@ import {
   Card,
   Avatar,
   Spin,
+  theme,
 } from "antd";
 import {
   ClockCircleOutlined,
@@ -40,6 +36,7 @@ import { ResponsiveContainer } from "../../components/responsive";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
+const { useToken } = theme;
 
 interface Task {
   id: number;
@@ -66,6 +63,8 @@ export const TaskTimeline: React.FC = () => {
   const go = useGo();
   const isMobile = useIsMobile();
   const isTablet = useIsTablet();
+  const { token } = useToken();
+  const isDarkMode = token.colorBgBase === '#141414';
 
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>([
     null,
@@ -216,7 +215,7 @@ export const TaskTimeline: React.FC = () => {
         style={{
           marginBottom: isMobile ? tokens.spacing[4] : tokens.spacing[6],
           padding: tokens.spacing[4],
-          backgroundColor: tokens.colors.background.paper,
+          backgroundColor: token.colorBgContainer,
           borderRadius: tokens.borderRadius.lg,
         }}
       >
@@ -249,7 +248,7 @@ export const TaskTimeline: React.FC = () => {
       {/* Timeline */}
       <div
         style={{
-          backgroundColor: tokens.colors.background.default,
+          backgroundColor: token.colorBgElevated,
           borderRadius: tokens.borderRadius.xl,
           padding: isMobile ? tokens.spacing[4] : tokens.spacing[6],
           boxShadow: tokens.shadows.sm,
@@ -295,9 +294,11 @@ export const TaskTimeline: React.FC = () => {
                         onClick={() => handleTaskClick(task.id)}
                         style={{
                           borderLeft: `4px solid ${getPriorityColor(
-                            task.priority
+                            task.priority,
+                            isDarkMode
                           )}`,
                           cursor: "pointer",
+                          backgroundColor: token.colorBgContainer,
                         }}
                       >
                         <Space
@@ -329,7 +330,7 @@ export const TaskTimeline: React.FC = () => {
                           {/* Task Metadata */}
                           <Space wrap size={tokens.spacing[1]}>
                             <Tag
-                              color={getStatusColor(task.status)}
+                              color={getStatusColor(task.status, isDarkMode)}
                               style={{
                                 fontSize: tokens.typography.fontSize.xs,
                               }}
@@ -338,7 +339,7 @@ export const TaskTimeline: React.FC = () => {
                             </Tag>
                             <Tag
                               icon={<FlagOutlined />}
-                              color={getPriorityColor(task.priority)}
+                              color={getPriorityColor(task.priority, isDarkMode)}
                               style={{
                                 fontSize: tokens.typography.fontSize.xs,
                               }}
@@ -389,7 +390,7 @@ export const TaskTimeline: React.FC = () => {
         style={{
           marginTop: tokens.spacing[4],
           padding: tokens.spacing[4],
-          backgroundColor: tokens.colors.background.paper,
+          backgroundColor: token.colorBgContainer,
           borderRadius: tokens.borderRadius.lg,
         }}
       >

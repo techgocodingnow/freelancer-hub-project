@@ -106,7 +106,6 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
       >
         <TenantSelector />
         <Space size={isMobile ? "small" : "middle"}>
-          <NotificationBell />
           <Switch
             checkedChildren="🌛"
             unCheckedChildren="🔆"
@@ -114,6 +113,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({
             defaultChecked={mode === "dark"}
             size={isMobile ? "small" : "default"}
           />
+          <NotificationBell />
           {!isMobile && (
             <Dropdown
               menu={{ items: menuItems }}

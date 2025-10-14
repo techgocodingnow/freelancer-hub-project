@@ -6,6 +6,7 @@
 import { useState, useCallback } from "react";
 import { useUpdate, useDelete } from "@refinedev/core";
 import { message } from "antd";
+import { getErrorMessage } from "../utils/error";
 
 export interface BulkActionOptions {
   resource: string;
@@ -85,11 +86,11 @@ export const useBulkActions = (options: BulkActionOptions) => {
         });
         clearSelection();
         options.onSuccess?.();
-      } catch (error: any) {
+      } catch (error) {
         hideLoading();
         message.open({
           type: "error",
-          content: error?.message || "Failed to update tasks",
+          content: getErrorMessage(error),
         });
         options.onError?.(error);
       } finally {
@@ -142,11 +143,11 @@ export const useBulkActions = (options: BulkActionOptions) => {
         });
         clearSelection();
         options.onSuccess?.();
-      } catch (error: any) {
+      } catch (error) {
         hideLoading();
         message.open({
           type: "error",
-          content: error?.message || "Failed to update tasks",
+          content: getErrorMessage(error),
         });
         options.onError?.(error);
       } finally {
@@ -199,11 +200,11 @@ export const useBulkActions = (options: BulkActionOptions) => {
         });
         clearSelection();
         options.onSuccess?.();
-      } catch (error: any) {
+      } catch (error) {
         hideLoading();
         message.open({
           type: "error",
-          content: error?.message || "Failed to assign tasks",
+          content: getErrorMessage(error),
         });
         options.onError?.(error);
       } finally {
@@ -254,11 +255,11 @@ export const useBulkActions = (options: BulkActionOptions) => {
       });
       clearSelection();
       options.onSuccess?.();
-    } catch (error: any) {
+    } catch (error) {
       hideLoading();
       message.open({
         type: "error",
-        content: error?.message || "Failed to delete tasks",
+        content: getErrorMessage(error),
       });
       options.onError?.(error);
     } finally {

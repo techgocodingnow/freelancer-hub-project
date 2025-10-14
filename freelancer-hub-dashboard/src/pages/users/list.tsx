@@ -36,6 +36,7 @@ import { useGetIdentity } from "@refinedev/core";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { ResponsiveContainer } from "../../components/responsive";
 import { InviteMemberModal } from "../../components/invitations";
+import { getErrorMessage } from "../../utils/error";
 
 const { Title } = Typography;
 const { confirm } = Modal;
@@ -75,9 +76,8 @@ export const UserList: React.FC = () => {
         pageSize: response.data.meta.perPage,
         total: response.data.meta.total,
       });
-    } catch (err: any) {
-      console.error("Failed to fetch users:", err);
-      setError(err?.response?.data?.error || "Failed to load users");
+    } catch (err) {
+      setError(getErrorMessage(err) || "");
     } finally {
       setLoading(false);
     }
@@ -125,10 +125,10 @@ export const UserList: React.FC = () => {
             content: "User role updated successfully",
           });
           fetchUsers(pagination.current, pagination.pageSize);
-        } catch (err: any) {
+        } catch (err) {
           message.open({
             type: "error",
-            content: err?.response?.data?.error || "Failed to update user role",
+            content: getErrorMessage(err),
           });
         }
       },
@@ -143,10 +143,10 @@ export const UserList: React.FC = () => {
         content: `Invitation resent to ${invitation.email}`,
       });
       fetchInvitations();
-    } catch (err: any) {
+    } catch (err) {
       message.open({
         type: "error",
-        content: err?.response?.data?.error || "Failed to resend invitation",
+        content: getErrorMessage(err),
       });
     }
   };
@@ -167,11 +167,10 @@ export const UserList: React.FC = () => {
             content: "Invitation cancelled",
           });
           fetchInvitations();
-        } catch (err: any) {
+        } catch (error) {
           message.open({
             type: "error",
-            content:
-              err?.response?.data?.error || "Failed to cancel invitation",
+            content: getErrorMessage(error),
           });
         }
       },

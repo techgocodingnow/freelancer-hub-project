@@ -68,6 +68,9 @@ export const colors = {
       secondary: '#1f1f1f',
       tertiary: '#262626',
       elevated: '#2d2d2d',
+      paper: '#1f1f1f',
+      hover: '#2d2d2d',
+      active: '#343434',
     },
     text: {
       primary: '#ffffff',
@@ -78,6 +81,32 @@ export const colors = {
     border: {
       primary: '#434343',
       secondary: '#2d2d2d',
+      default: '#2d2d2d',
+      light: '#262626',
+      medium: '#434343',
+      dark: '#595959',
+    },
+    // Dark mode specific priority colors (slightly muted for better contrast)
+    priority: {
+      urgent: '#ff7875',
+      high: '#ffa940',
+      medium: '#40a9ff',
+      low: '#bfbfbf',
+    },
+    // Dark mode specific status colors
+    status: {
+      todo: '#bfbfbf',
+      in_progress: '#40a9ff',
+      review: '#ffc53d',
+      done: '#73d13d',
+      blocked: '#ff7875',
+    },
+    // Dark mode specific due date colors
+    dueDate: {
+      overdue: '#ff7875',
+      dueToday: '#ffc53d',
+      dueSoon: '#40a9ff',
+      onTrack: '#73d13d',
     },
   },
 
@@ -109,38 +138,41 @@ export const colors = {
 } as const;
 
 // Helper function to get priority color
-export const getPriorityColor = (priority: string): string => {
+export const getPriorityColor = (priority: string, isDarkMode = false): string => {
+  const priorityColors = isDarkMode ? colors.dark.priority : colors.priority;
   const priorityMap: Record<string, string> = {
-    urgent: colors.priority.urgent,
-    high: colors.priority.high,
-    medium: colors.priority.medium,
-    low: colors.priority.low,
+    urgent: priorityColors.urgent,
+    high: priorityColors.high,
+    medium: priorityColors.medium,
+    low: priorityColors.low,
   };
-  return priorityMap[priority] || colors.priority.medium;
+  return priorityMap[priority] || priorityColors.medium;
 };
 
 // Helper function to get status color
-export const getStatusColor = (status: string): string => {
+export const getStatusColor = (status: string, isDarkMode = false): string => {
+  const statusColors = isDarkMode ? colors.dark.status : colors.status;
   const statusMap: Record<string, string> = {
-    todo: colors.status.todo,
-    in_progress: colors.status.in_progress,
-    review: colors.status.review,
-    done: colors.status.done,
-    blocked: colors.status.blocked,
+    todo: statusColors.todo,
+    in_progress: statusColors.in_progress,
+    review: statusColors.review,
+    done: statusColors.done,
+    blocked: statusColors.blocked,
   };
-  return statusMap[status] || colors.status.todo;
+  return statusMap[status] || statusColors.todo;
 };
 
 // Helper function to get due date color
-export const getDueDateColor = (dueDate: string): string => {
+export const getDueDateColor = (dueDate: string, isDarkMode = false): string => {
+  const dueDateColors = isDarkMode ? colors.dark.dueDate : colors.dueDate;
   const now = new Date();
   const due = new Date(dueDate);
   const diffDays = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-  if (diffDays < 0) return colors.dueDate.overdue;
-  if (diffDays === 0) return colors.dueDate.dueToday;
-  if (diffDays <= 3) return colors.dueDate.dueSoon;
-  return colors.dueDate.onTrack;
+  if (diffDays < 0) return dueDateColors.overdue;
+  if (diffDays === 0) return dueDateColors.dueToday;
+  if (diffDays <= 3) return dueDateColors.dueSoon;
+  return dueDateColors.onTrack;
 };
 
 export default colors;

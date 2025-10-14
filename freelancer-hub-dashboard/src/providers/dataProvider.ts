@@ -160,6 +160,7 @@ export const createTenantAwareDataProvider = (
         );
 
         return {
+          ...data,
           data: data.data,
           total: data.meta?.total || 0,
         };
