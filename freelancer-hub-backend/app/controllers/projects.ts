@@ -7,6 +7,7 @@ import {
   createProjectValidator,
   updateProjectValidator,
   addProjectMemberValidator,
+  updateProjectMemberRateValidator,
 } from '#validators/projects'
 
 export default class ProjectsController {
@@ -242,6 +243,7 @@ export default class ProjectsController {
       projectId: project.id,
       userId: data.userId,
       role: data.role || 'member',
+      hourlyRate: data.hourlyRate || null,
       joinedAt: DateTime.now(),
     })
 
@@ -301,6 +303,49 @@ export default class ProjectsController {
   }
 
   /**
+   * Update a project member's hourly rate
+   */
+  async updateMemberRate({ tenant, auth, params, request, response }: HttpContext) {
+    const project = await Project.query()
+      .where('tenant_id', tenant.id)
+      .where('id', params.id)
+      .first()
+
+    if (!project) {
+      return response.notFound({ error: 'Project not found' })
+    }
+
+    // Check if current user is project admin or owner
+    const user = auth.getUserOrFail()
+    const membership = await ProjectMember.query()
+      .where('project_id', project.id)
+      .where('user_id', user.id)
+      .whereIn('role', ['owner', 'admin'])
+      .first()
+
+    if (!membership) {
+      return response.forbidden({ error: 'Only project owners and admins can update member rates' })
+    }
+
+    const data = await request.validateUsing(updateProjectMemberRateValidator)
+
+    const memberToUpdate = await ProjectMember.query()
+      .where('project_id', project.id)
+      .where('id', params.memberId)
+      .first()
+
+    if (!memberToUpdate) {
+      return response.notFound({ error: 'Member not found' })
+    }
+
+    memberToUpdate.hourlyRate = data.hourlyRate || null
+    await memberToUpdate.save()
+    await memberToUpdate.load('user')
+
+    return response.ok({ data: memberToUpdate })
+  }
+
+  /**
    * Get time summary for a project within a date range
    * Returns total hours and breakdown by team member
    */
@@ -320,10 +365,15 @@ export default class ProjectsController {
     }
 
     // Query billable time entries for this project within date range
+    // Join with project_members and users to get both project-specific and default hourly rates
     const timeEntriesQuery = db
       .from('time_entries')
       .join('tasks', 'time_entries.task_id', 'tasks.id')
       .join('users', 'time_entries.user_id', 'users.id')
+      .leftJoin('project_members', function() {
+        this.on('project_members.user_id', 'users.id')
+          .andOn('project_members.project_id', 'tasks.project_id')
+      })
       .where('tasks.project_id', projectId)
       .where('time_entries.billable', true)
 
@@ -338,8 +388,15 @@ export default class ProjectsController {
     const timeEntries = await timeEntriesQuery.select(
       'time_entries.user_id',
       'users.full_name as user_name',
+      'users.hourly_rate as user_default_rate',
+      'project_members.hourly_rate as project_specific_rate',
       db.raw('SUM(time_entries.duration_minutes) as total_minutes')
-    ).groupBy('time_entries.user_id', 'users.full_name')
+    ).groupBy(
+      'time_entries.user_id',
+      'users.full_name',
+      'users.hourly_rate',
+      'project_members.hourly_rate'
+    )
 
     // Calculate totals
     const totalMinutes = timeEntries.reduce(
@@ -348,12 +405,22 @@ export default class ProjectsController {
     )
     const totalHours = totalMinutes / 60
 
-    // Format per-member breakdown
-    const memberBreakdown = timeEntries.map((entry) => ({
-      userId: entry.user_id,
-      userName: entry.user_name,
-      hours: Number(entry.total_minutes) / 60,
-    }))
+    // Format per-member breakdown with rate information
+    const memberBreakdown = timeEntries.map((entry) => {
+      const hours = Number(entry.total_minutes) / 60
+      const projectSpecificRate = entry.project_specific_rate ? Number(entry.project_specific_rate) : null
+      const defaultRate = entry.user_default_rate ? Number(entry.user_default_rate) : null
+      const effectiveRate = projectSpecificRate ?? defaultRate
+
+      return {
+        userId: entry.user_id,
+        userName: entry.user_name,
+        hours,
+        effectiveRate,
+        projectSpecificRate,
+        defaultRate,
+      }
+    })
 
     return response.ok({
       projectId,

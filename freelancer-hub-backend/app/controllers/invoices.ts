@@ -179,11 +179,16 @@ export default class InvoicesController {
         hourlyRate: projectConfig.hourlyRate,
       })
 
-      // Fetch time entries for this project
+      // Fetch time entries for this project with member-specific rates
+      // Join with project_members and users to get both project-specific and default hourly rates
       const timeEntriesQuery = db
         .from('time_entries')
         .join('tasks', 'time_entries.task_id', 'tasks.id')
         .join('users', 'time_entries.user_id', 'users.id')
+        .leftJoin('project_members', function() {
+          this.on('project_members.user_id', 'users.id')
+            .andOn('project_members.project_id', 'tasks.project_id')
+        })
         .where('tasks.project_id', project.id)
         .where('time_entries.billable', true)
         .where('time_entries.date', '>=', startDate.toSQLDate())
@@ -191,21 +196,34 @@ export default class InvoicesController {
         .select(
           'time_entries.user_id',
           'users.full_name as user_name',
+          'users.hourly_rate as user_default_rate',
+          'project_members.hourly_rate as project_specific_rate',
           db.raw('SUM(time_entries.duration_minutes) as total_minutes')
         )
-        .groupBy('time_entries.user_id', 'users.full_name')
+        .groupBy(
+          'time_entries.user_id',
+          'users.full_name',
+          'users.hourly_rate',
+          'project_members.hourly_rate'
+        )
 
       const timeEntries = await timeEntriesQuery
 
-      // Generate line items per member for this project
+      // Generate line items per member for this project using rate resolution
       for (const entry of timeEntries) {
         const hours = Number(entry.total_minutes) / 60
+
+        // Rate priority: project-specific > user default > invoice project rate
+        const projectSpecificRate = entry.project_specific_rate ? Number(entry.project_specific_rate) : null
+        const userDefaultRate = entry.user_default_rate ? Number(entry.user_default_rate) : null
+        const effectiveRate = projectSpecificRate ?? userDefaultRate ?? projectConfig.hourlyRate
+
         allItems.push({
           description: `Work by ${entry.user_name} on ${project.name}`,
           quantity: Math.round(hours * 100) / 100,
           unit: 'hours',
-          unitPrice: projectConfig.hourlyRate,
-          amount: hours * projectConfig.hourlyRate,
+          unitPrice: effectiveRate,
+          amount: hours * effectiveRate,
         })
       }
     }

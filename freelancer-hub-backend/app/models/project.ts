@@ -5,6 +5,7 @@ import Tenant from '#models/tenant'
 import Task from '#models/task'
 import User from '#models/user'
 import ProjectMember from '#models/project_member'
+import Customer from '#models/customer'
 
 export default class Project extends BaseModel {
   @column({ isPrimary: true })
@@ -12,6 +13,9 @@ export default class Project extends BaseModel {
 
   @column()
   declare tenantId: number
+
+  @column()
+  declare customerId: number | null
 
   @column()
   declare name: string
@@ -41,6 +45,9 @@ export default class Project extends BaseModel {
   @belongsTo(() => Tenant)
   declare tenant: BelongsTo<typeof Tenant>
 
+  @belongsTo(() => Customer)
+  declare customer: BelongsTo<typeof Customer>
+
   @hasMany(() => Task)
   declare tasks: HasMany<typeof Task>
 
@@ -51,7 +58,7 @@ export default class Project extends BaseModel {
     pivotTable: 'project_members',
     pivotForeignKey: 'project_id',
     pivotRelatedForeignKey: 'user_id',
-    pivotColumns: ['role', 'joined_at'],
+    pivotColumns: ['role', 'joined_at', 'hourly_rate'],
   })
   declare members: ManyToMany<typeof User>
 }

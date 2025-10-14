@@ -17,6 +17,9 @@ export default class ProjectMember extends BaseModel {
   @column()
   declare role: 'owner' | 'admin' | 'member' | 'viewer'
 
+  @column()
+  declare hourlyRate: number | null
+
   @column.dateTime()
   declare joinedAt: DateTime
 

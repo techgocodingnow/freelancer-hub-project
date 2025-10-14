@@ -86,6 +86,7 @@ router
         // Project members
         router.get('/projects/:id/members', [ProjectsController, 'members'])
         router.post('/projects/:id/members', [ProjectsController, 'addMember'])
+        router.patch('/projects/:id/members/:memberId', [ProjectsController, 'updateMemberRate'])
         router.delete('/projects/:id/members/:userId', [ProjectsController, 'removeMember'])
 
         // Project time summary
