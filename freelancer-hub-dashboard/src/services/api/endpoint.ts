@@ -73,6 +73,25 @@ const ENDPOINTS = {
     muteAll: "/notification-preferences/mute/all",
     unmuteAll: "/notification-preferences/unmute/all",
   },
+  customers: {
+    list: "/customers",
+    create: "/customers",
+    one: "/customers/:customerId",
+    update: "/customers/:customerId",
+    delete: "/customers/:customerId",
+    search: "/customers/search",
+  },
+  invoices: {
+    list: "/invoices",
+    create: "/invoices",
+    one: "/invoices/:invoiceId",
+    update: "/invoices/:invoiceId",
+    delete: "/invoices/:invoiceId",
+    generate: "/invoices/generate",
+    updateStatus: "/invoices/:invoiceId/status",
+    send: "/invoices/:invoiceId/send",
+    generatePdf: "/invoices/:invoiceId/pdf",
+  },
 };
 
 export default ENDPOINTS;

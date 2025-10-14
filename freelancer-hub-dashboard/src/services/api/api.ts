@@ -417,6 +417,93 @@ class Api {
       AxiosResponse<DefaultPreferencesResponse>
     >(ENDPOINTS.notificationPreferences.defaults);
   }
+
+  // Customers
+  getCustomers(params?: { search?: string; isActive?: boolean }) {
+    return this._privateInstance.get(ENDPOINTS.customers.list, { params });
+  }
+
+  getCustomer(id: number) {
+    return this._privateInstance.get(
+      ENDPOINTS.customers.one.replace(":customerId", id.toString())
+    );
+  }
+
+  createCustomer(data: any) {
+    return this._privateInstance.post(ENDPOINTS.customers.create, data);
+  }
+
+  updateCustomer(id: number, data: any) {
+    return this._privateInstance.patch(
+      ENDPOINTS.customers.update.replace(":customerId", id.toString()),
+      data
+    );
+  }
+
+  deleteCustomer(id: number) {
+    return this._privateInstance.delete(
+      ENDPOINTS.customers.delete.replace(":customerId", id.toString())
+    );
+  }
+
+  searchCustomers(q: string, limit?: number) {
+    return this._privateInstance.get(ENDPOINTS.customers.search, {
+      params: { q, limit },
+    });
+  }
+
+  // Invoices
+  getInvoices(params?: any) {
+    return this._privateInstance.get(ENDPOINTS.invoices.list, { params });
+  }
+
+  getInvoice(id: number) {
+    return this._privateInstance.get(
+      ENDPOINTS.invoices.one.replace(":invoiceId", id.toString())
+    );
+  }
+
+  createInvoice(data: {
+    customerId: number;
+    duration: "1week" | "2weeks" | "1month";
+    items: Array<{
+      description: string;
+      quantity: number;
+      unitPrice: number;
+    }>;
+  }) {
+    return this._privateInstance.post(ENDPOINTS.invoices.create, data);
+  }
+
+  generateInvoiceFromTimeEntries(data: any) {
+    return this._privateInstance.post(ENDPOINTS.invoices.generate, data);
+  }
+
+  updateInvoiceStatus(id: number, status: string) {
+    return this._privateInstance.patch(
+      ENDPOINTS.invoices.updateStatus.replace(":invoiceId", id.toString()),
+      { status }
+    );
+  }
+
+  sendInvoice(id: number, email: string) {
+    return this._privateInstance.post(
+      ENDPOINTS.invoices.send.replace(":invoiceId", id.toString()),
+      { email }
+    );
+  }
+
+  generateInvoicePdf(id: number) {
+    return this._privateInstance.post(
+      ENDPOINTS.invoices.generatePdf.replace(":invoiceId", id.toString())
+    );
+  }
+
+  deleteInvoice(id: number) {
+    return this._privateInstance.delete(
+      ENDPOINTS.invoices.delete.replace(":invoiceId", id.toString())
+    );
+  }
 }
 
 export default new Api();
