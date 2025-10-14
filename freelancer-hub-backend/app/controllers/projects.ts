@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Project from '#models/project'
 import ProjectMember from '#models/project_member'
+import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
 import {
   createProjectValidator,
@@ -297,5 +298,72 @@ export default class ProjectsController {
 
     await memberToRemove.delete()
     return response.noContent()
+  }
+
+  /**
+   * Get time summary for a project within a date range
+   * Returns total hours and breakdown by team member
+   */
+  async timeSummary({ tenant, params, request, response }: HttpContext) {
+    const projectId = params.id
+    const startDate = request.input('startDate')
+    const endDate = request.input('endDate')
+
+    // Validate project exists and belongs to tenant
+    const project = await Project.query()
+      .where('id', projectId)
+      .where('tenant_id', tenant.id)
+      .first()
+
+    if (!project) {
+      return response.notFound({ error: 'Project not found' })
+    }
+
+    // Query billable time entries for this project within date range
+    const timeEntriesQuery = db
+      .from('time_entries')
+      .join('tasks', 'time_entries.task_id', 'tasks.id')
+      .join('users', 'time_entries.user_id', 'users.id')
+      .where('tasks.project_id', projectId)
+      .where('time_entries.billable', true)
+
+    if (startDate) {
+      timeEntriesQuery.where('time_entries.date', '>=', startDate)
+    }
+
+    if (endDate) {
+      timeEntriesQuery.where('time_entries.date', '<=', endDate)
+    }
+
+    const timeEntries = await timeEntriesQuery.select(
+      'time_entries.user_id',
+      'users.full_name as user_name',
+      db.raw('SUM(time_entries.duration_minutes) as total_minutes')
+    ).groupBy('time_entries.user_id', 'users.full_name')
+
+    // Calculate totals
+    const totalMinutes = timeEntries.reduce(
+      (sum, entry) => sum + Number(entry.total_minutes),
+      0
+    )
+    const totalHours = totalMinutes / 60
+
+    // Format per-member breakdown
+    const memberBreakdown = timeEntries.map((entry) => ({
+      userId: entry.user_id,
+      userName: entry.user_name,
+      hours: Number(entry.total_minutes) / 60,
+    }))
+
+    return response.ok({
+      projectId,
+      totalHours: Math.round(totalHours * 100) / 100, // Round to 2 decimals
+      memberCount: timeEntries.length,
+      memberBreakdown,
+      dateRange: {
+        startDate: startDate || null,
+        endDate: endDate || null,
+      },
+    })
   }
 }

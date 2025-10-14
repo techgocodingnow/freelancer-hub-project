@@ -88,6 +88,9 @@ router
         router.post('/projects/:id/members', [ProjectsController, 'addMember'])
         router.delete('/projects/:id/members/:userId', [ProjectsController, 'removeMember'])
 
+        // Project time summary
+        router.get('/projects/:id/time-summary', [ProjectsController, 'timeSummary'])
+
         // Tasks
         router.get('/projects/:projectId/tasks', [TasksController, 'index'])
         router.get('/projects/:projectId/tasks/:id', [TasksController, 'show'])
