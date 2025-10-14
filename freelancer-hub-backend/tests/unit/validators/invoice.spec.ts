@@ -84,7 +84,7 @@ test.group('Invoice Validator', () => {
     assert.lengthOf(validated.items, 2)
   })
 
-  test('should reject missing customerId', async ({ assert }) => {
+  test('should accept missing customerId if duration and items provided', async ({ assert }) => {
     const data = {
       duration: '1week',
       items: [
@@ -96,9 +96,10 @@ test.group('Invoice Validator', () => {
       ],
     }
 
-    await assert.rejects(async () => {
-      await createInvoiceValidator.validate(data)
-    })
+    const validated = await createInvoiceValidator.validate(data)
+
+    assert.isUndefined(validated.customerId)
+    assert.lengthOf(validated.items, 1)
   })
 
   test('should reject invalid duration', async ({ assert }) => {
@@ -224,6 +225,140 @@ test.group('Invoice Validator', () => {
     const data = {
       customerId: 1,
       duration: '1week',
+    }
+
+    await assert.rejects(async () => {
+      await createInvoiceValidator.validate(data)
+    })
+  })
+
+  // New tests for optional fields
+  test('should accept optional projectId', async ({ assert }) => {
+    const data = {
+      customerId: 1,
+      projectId: 5,
+      duration: '1week',
+      items: [
+        {
+          description: 'Service',
+          quantity: 1,
+          unitPrice: 100,
+        },
+      ],
+    }
+
+    const validated = await createInvoiceValidator.validate(data)
+
+    assert.equal(validated.projectId, 5)
+  })
+
+  test('should accept optional hourlyRate', async ({ assert }) => {
+    const data = {
+      customerId: 1,
+      duration: '1week',
+      hourlyRate: 150,
+      items: [
+        {
+          description: 'Service',
+          quantity: 1,
+          unitPrice: 100,
+        },
+      ],
+    }
+
+    const validated = await createInvoiceValidator.validate(data)
+
+    assert.equal(validated.hourlyRate, 150)
+  })
+
+  test('should accept optional toEmail', async ({ assert }) => {
+    const data = {
+      customerId: 1,
+      duration: '1week',
+      toEmail: 'recipient@example.com',
+      items: [
+        {
+          description: 'Service',
+          quantity: 1,
+          unitPrice: 100,
+        },
+      ],
+    }
+
+    const validated = await createInvoiceValidator.validate(data)
+
+    assert.equal(validated.toEmail, 'recipient@example.com')
+  })
+
+  test('should accept projectId without customerId', async ({ assert }) => {
+    const data = {
+      projectId: 5,
+      duration: '1week',
+      items: [
+        {
+          description: 'Service',
+          quantity: 1,
+          unitPrice: 100,
+        },
+      ],
+    }
+
+    const validated = await createInvoiceValidator.validate(data)
+
+    assert.equal(validated.projectId, 5)
+    assert.isUndefined(validated.customerId)
+  })
+
+  test('should reject invalid email format for toEmail', async ({ assert }) => {
+    const data = {
+      customerId: 1,
+      duration: '1week',
+      toEmail: 'invalid-email',
+      items: [
+        {
+          description: 'Service',
+          quantity: 1,
+          unitPrice: 100,
+        },
+      ],
+    }
+
+    await assert.rejects(async () => {
+      await createInvoiceValidator.validate(data)
+    })
+  })
+
+  test('should reject negative hourlyRate', async ({ assert }) => {
+    const data = {
+      customerId: 1,
+      duration: '1week',
+      hourlyRate: -50,
+      items: [
+        {
+          description: 'Service',
+          quantity: 1,
+          unitPrice: 100,
+        },
+      ],
+    }
+
+    await assert.rejects(async () => {
+      await createInvoiceValidator.validate(data)
+    })
+  })
+
+  test('should reject zero hourlyRate', async ({ assert }) => {
+    const data = {
+      customerId: 1,
+      duration: '1week',
+      hourlyRate: 0,
+      items: [
+        {
+          description: 'Service',
+          quantity: 1,
+          unitPrice: 100,
+        },
+      ],
     }
 
     await assert.rejects(async () => {
