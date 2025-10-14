@@ -2,14 +2,30 @@ import vine from '@vinejs/vine'
 
 /**
  * Validator for creating a manual invoice
- * Supports both manual invoices (customerId + items) and project-based invoices (projectId + hourlyRate)
+ * Supports:
+ * - Manual invoices: customerId + items
+ * - Single project: projectId + hourlyRate (backward compatibility)
+ * - Multiple projects: projectIds array with individual rates
  */
 export const createInvoiceValidator = vine.compile(
   vine.object({
     customerId: vine.number().positive().optional(),
+
+    // Old format (backward compatibility): single project
     projectId: vine.number().positive().optional(),
-    duration: vine.enum(['1week', '2weeks', '1month']),
     hourlyRate: vine.number().min(0.01).optional(),
+
+    // New format: multiple projects with individual rates
+    projectIds: vine
+      .array(
+        vine.object({
+          projectId: vine.number().positive(),
+          hourlyRate: vine.number().min(0.01),
+        })
+      )
+      .optional(),
+
+    duration: vine.enum(['1week', '2weeks', '1month']),
     toEmail: vine.string().email().optional(),
     items: vine
       .array(

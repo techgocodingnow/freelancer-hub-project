@@ -1,6 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Invoice from '#models/invoice'
 import InvoiceItem from '#models/invoice_item'
+import InvoiceProject from '#models/invoice_project'
 import TimeEntry from '#models/time_entry'
 import Customer from '#models/customer'
 import Project from '#models/project'
