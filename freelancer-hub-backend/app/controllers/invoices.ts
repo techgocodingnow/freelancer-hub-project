@@ -3,6 +3,7 @@ import Invoice from '#models/invoice'
 import InvoiceItem from '#models/invoice_item'
 import TimeEntry from '#models/time_entry'
 import Customer from '#models/customer'
+import Project from '#models/project'
 import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
 import pdfService from '#services/pdf_service'
@@ -81,15 +82,50 @@ export default class InvoicesController {
   }
 
   /**
-   * Create a manual invoice
+   * Create a manual invoice (with optional project-based time entries)
    */
   async store({ tenant, auth, request, response }: HttpContext) {
     const user = auth.getUserOrFail()
     const data = await request.validateUsing(createInvoiceValidator)
 
-    // Get customer details
-    const customer = await Customer.query()
-      .where('id', data.customerId)
+    let customer: Customer | null = null
+    let project: Project | null = null
+    let projectId: number | null = null
+    let customerId: number | null = null
+
+    // Handle project-based invoice
+    if (data.projectId) {
+      project = await Project.query()
+        .where('id', data.projectId)
+        .where('tenant_id', tenant.id)
+        .preload('customer')
+        .first()
+
+      if (!project) {
+        return response.notFound({ error: 'Project not found' })
+      }
+
+      projectId = project.id
+
+      // Use project's customer if no customerId provided
+      if (data.customerId) {
+        customerId = data.customerId
+      } else if (project.customerId) {
+        customerId = project.customerId
+      }
+    } else if (data.customerId) {
+      customerId = data.customerId
+    }
+
+    // Fetch customer details
+    if (!customerId) {
+      return response.badRequest({
+        error: 'Either customerId or a project with a customer must be provided',
+      })
+    }
+
+    customer = await Customer.query()
+      .where('id', customerId)
       .where('tenant_id', tenant.id)
       .first()
 
@@ -97,11 +133,79 @@ export default class InvoicesController {
       return response.notFound({ error: 'Customer not found' })
     }
 
-    // Calculate totals from line items
-    const subtotal = data.items.reduce((sum, item) => {
-      return sum + item.quantity * item.unitPrice
-    }, 0)
+    // Calculate date range from duration
+    const now = DateTime.now()
+    let startDate: DateTime
+    let endDate: DateTime
 
+    switch (data.duration) {
+      case '1week':
+        startDate = now
+        endDate = now.plus({ days: 7 })
+        break
+      case '2weeks':
+        startDate = now
+        endDate = now.plus({ days: 14 })
+        break
+      case '1month':
+        startDate = now
+        endDate = now.plus({ days: 30 })
+        break
+    }
+
+    const allItems: Array<{
+      description: string
+      quantity: number
+      unit: string
+      unitPrice: number
+      amount: number
+    }> = []
+
+    // If project selected, fetch time entries and generate line items per member
+    if (projectId && data.hourlyRate) {
+      const timeEntriesQuery = db
+        .from('time_entries')
+        .join('tasks', 'time_entries.task_id', 'tasks.id')
+        .join('users', 'time_entries.user_id', 'users.id')
+        .where('tasks.project_id', projectId)
+        .where('time_entries.billable', true)
+        .where('time_entries.date', '>=', startDate.toSQLDate())
+        .where('time_entries.date', '<=', endDate.toSQLDate())
+        .select(
+          'time_entries.user_id',
+          'users.full_name as user_name',
+          db.raw('SUM(time_entries.duration_minutes) as total_minutes')
+        )
+        .groupBy('time_entries.user_id', 'users.full_name')
+
+      const timeEntries = await timeEntriesQuery
+
+      // Generate line items per member
+      for (const entry of timeEntries) {
+        const hours = Number(entry.total_minutes) / 60
+        allItems.push({
+          description: `Work by ${entry.user_name}`,
+          quantity: Math.round(hours * 100) / 100, // Round to 2 decimals
+          unit: 'hours',
+          unitPrice: data.hourlyRate,
+          amount: hours * data.hourlyRate,
+        })
+      }
+    }
+
+    // Add manual line items
+    for (const item of data.items) {
+      allItems.push({
+        description: item.description,
+        quantity: item.quantity,
+        unit: 'unit',
+        unitPrice: item.unitPrice,
+        amount: item.quantity * item.unitPrice,
+      })
+    }
+
+    // Calculate totals
+    const subtotal = allItems.reduce((sum, item) => sum + item.amount, 0)
     const taxRate = 0
     const taxAmount = 0
     const discountAmount = 0
@@ -111,7 +215,7 @@ export default class InvoicesController {
     const invoiceCount = await Invoice.query().where('tenant_id', tenant.id).count('* as total')
     const invoiceNumber = `INV-${String(Number(invoiceCount[0].$extras.total) + 1).padStart(5, '0')}`
 
-    // Prepare client info from customer
+    // Prepare client info
     const clientAddress = [
       customer.addressLine1,
       customer.addressLine2,
@@ -127,7 +231,7 @@ export default class InvoicesController {
     const invoice = await Invoice.create({
       tenantId: tenant.id,
       userId: user.id,
-      projectId: null,
+      projectId,
       customerId: customer.id,
       invoiceNumber,
       status: 'draft',
@@ -141,25 +245,29 @@ export default class InvoicesController {
       amountPaid: 0,
       currency: 'USD',
       clientName: customer.name,
-      clientEmail: customer.email,
+      clientEmail: data.toEmail || customer.email,
       clientAddress: clientAddress || null,
+      sentTo: data.toEmail || customer.email,
     })
 
     // Create invoice items
-    for (const item of data.items) {
+    for (const item of allItems) {
       await InvoiceItem.create({
         invoiceId: invoice.id,
         description: item.description,
         quantity: item.quantity,
-        unit: 'unit',
+        unit: item.unit,
         unitPrice: item.unitPrice,
-        amount: item.quantity * item.unitPrice,
+        amount: item.amount,
       })
     }
 
     // Load relationships
     await invoice.load('user')
     await invoice.load('customer')
+    if (projectId) {
+      await invoice.load('project')
+    }
     await invoice.load('items')
 
     return response.created({ data: invoice })
