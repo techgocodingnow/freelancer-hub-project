@@ -465,9 +465,13 @@ class Api {
 
   createInvoice(data: {
     customerId?: number;
-    projectId?: number;
+    projectId?: number; // Backward compatibility
     duration: "1week" | "2weeks" | "1month";
-    hourlyRate?: number;
+    hourlyRate?: number; // Backward compatibility
+    projectIds?: Array<{  // New format for multiple projects
+      projectId: number;
+      hourlyRate: number;
+    }>;
     toEmail?: string;
     items: Array<{
       description: string;
