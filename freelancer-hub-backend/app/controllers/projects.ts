@@ -7,6 +7,7 @@ import {
   createProjectValidator,
   updateProjectValidator,
   addProjectMemberValidator,
+  updateProjectMemberValidator,
   updateProjectMemberRateValidator,
 } from '#validators/projects'
 
@@ -243,6 +244,7 @@ export default class ProjectsController {
       projectId: project.id,
       userId: data.userId,
       role: data.role || 'member',
+      position: data.position || null,
       hourlyRate: data.hourlyRate || null,
       joinedAt: DateTime.now(),
     })
@@ -303,6 +305,54 @@ export default class ProjectsController {
   }
 
   /**
+   * Update a project member
+   */
+  async updateMember({ tenant, auth, params, request, response }: HttpContext) {
+    const project = await Project.query()
+      .where('tenant_id', tenant.id)
+      .where('id', params.id)
+      .first()
+
+    if (!project) {
+      return response.notFound({ error: 'Project not found' })
+    }
+
+    // Check if current user is project admin or owner
+    const user = auth.getUserOrFail()
+    const membership = await ProjectMember.query()
+      .where('project_id', project.id)
+      .where('user_id', user.id)
+      .whereIn('role', ['owner', 'admin'])
+      .first()
+
+    if (!membership) {
+      return response.forbidden({ error: 'Only project owners and admins can update members' })
+    }
+
+    const data = await request.validateUsing(updateProjectMemberValidator)
+
+    const memberToUpdate = await ProjectMember.query()
+      .where('project_id', project.id)
+      .where('id', params.memberId)
+      .first()
+
+    if (!memberToUpdate) {
+      return response.notFound({ error: 'Member not found' })
+    }
+
+    // Update fields if provided
+    if (data.role !== undefined) memberToUpdate.role = data.role
+    if (data.position !== undefined) memberToUpdate.position = data.position || null
+    if (data.hourlyRate !== undefined) memberToUpdate.hourlyRate = data.hourlyRate || null
+
+    await memberToUpdate.save()
+    await memberToUpdate.load('user')
+
+    return response.ok({ data: memberToUpdate })
+  }
+
+  /**
+   * @deprecated Use updateMember instead
    * Update a project member's hourly rate
    */
   async updateMemberRate({ tenant, auth, params, request, response }: HttpContext) {

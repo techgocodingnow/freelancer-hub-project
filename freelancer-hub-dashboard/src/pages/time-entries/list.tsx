@@ -155,8 +155,6 @@ export const TimeEntriesList: React.FC = () => {
       pageSize: 50,
     },
   });
-  console.log("🚀 ~ TimeEntriesList ~ timeEntriesData:", timeEntriesData);
-  console.log("🚀 ~ TimeEntriesList ~ result:", result);
 
   // Fetch users for filter (admin only)
   const { result: usersData } = useList({

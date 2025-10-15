@@ -1493,3 +1493,202 @@ The key is to write clean, testable, functional code that evolves through small,
 5. Add custom due date override (currently defaults to +30 days)
 6. Add notes field to invoice creation form
 7. Add draft save functionality (create without redirecting)
+
+## Team Member Position Field & Enhanced UI (2025-10-15)
+
+**Summary**: Added position field to project members and completely redesigned team management UI with modal-based editing, action buttons, and improved mobile responsiveness.
+
+### Implementation Overview
+
+**New Features:**
+- Position field for project members (e.g., "Frontend Developer", "Project Manager")
+- Modal-based member editing (role, position, hourly rate)
+- Edit and Remove action buttons for each team member
+- Improved team member table with Position column
+- Enhanced mobile responsiveness
+- Backward-compatible API with deprecated old methods
+
+### Backend Implementation
+
+**Database Changes:**
+- Added `position` column to `project_members` table (nullable, VARCHAR(255))
+- Migration: `1760505713903_create_add_position_to_project_members_table.ts`
+- Updated `ProjectMember` model to include position field
+- Updated `Project` model pivot columns to include position
+
+**Validator Updates:**
+- `addProjectMemberValidator`: Added optional `position` field (string, max 255 chars)
+- `updateProjectMemberValidator` (new): Comprehensive validator for role, position, hourly rate
+- `updateProjectMemberRateValidator`: Deprecated but kept for backward compatibility
+
+**Controller Changes:**
+- `addMember()`: Now accepts and stores position field
+- `updateMember()` (new): Update role, position, and/or hourly rate in single operation
+- `updateMemberRate()`: Deprecated but functional, redirects to updateMember internally
+- All methods properly check admin/owner permissions
+
+**Routes:**
+- Updated `PATCH /projects/:id/members/:memberId` to use new `updateMember` method
+- Maintains backward compatibility (old payloads still work)
+
+**Database Seeding:**
+- Updated project owners to have "Project Manager" position
+- Added sample positions for other members:
+  - "Technical Lead" for admins
+  - "Senior Developer", "Frontend Developer" for regular members
+
+### Frontend Implementation
+
+**API Layer** (`src/services/api/`):
+- Added `ProjectMember`, `AddProjectMemberPayload`, `UpdateProjectMemberPayload` types
+- New method: `updateProjectMember()` - comprehensive member update
+- New method: `removeProjectMember()` - delete team member
+- Deprecated: `updateProjectMemberRate()` - kept for compatibility
+
+**Components:**
+- `ProjectMemberModal` (new): Reusable modal for adding/editing members
+  - Support for both add and edit modes
+  - Fields: user selection (add only), role dropdown, position input, hourly rate
+  - Shows member's default hourly rate as placeholder
+  - Client-side validation
+  - Clean, mobile-friendly UI
+
+**Project Show Page** (`src/pages/projects/show.tsx`):
+- Added Position column to team members table
+- Added Actions column with Edit and Remove buttons (admin/owner only)
+- Removed inline hourly rate editing (moved to modal)
+- Simplified hourly rate display (read-only in table)
+- Integrated `ProjectMemberModal` for editing
+- Added confirmation dialog for member removal
+- Improved mobile responsiveness (table scrolls horizontally)
+
+### Key Implementation Decisions
+
+1. **Modal-Based Editing**: Chose modal over inline editing for better UX:
+   - Cleaner interface
+   - All fields editable in one place
+   - Better mobile experience
+   - Clearer user intent
+
+2. **Backward Compatibility**: Kept deprecated methods functional:
+   - `updateProjectMemberRateValidator` still works
+   - `updateMemberRate()` controller method functional
+   - Frontend keeps `updateProjectMemberRate()` API method
+   - No breaking changes for existing code
+
+3. **Position Field Optional**: Made position nullable and optional:
+   - Not all projects need position tracking
+   - Gradual adoption possible
+   - Displays "Not set" when empty (not error state)
+
+4. **No Separate Teams Route**: Kept team management in Project Show page:
+   - Reduces navigation complexity
+   - All project info in one place
+   - Tab structure is sufficient
+   - No need for submenu
+
+5. **Action Buttons Over Inline Actions**: Replaced inline rate editing with action buttons:
+   - More discoverable (explicit Edit/Remove buttons)
+   - Consistent with other CRUD operations
+   - Prevents accidental changes
+   - Better for touch interfaces
+
+### Gotchas and Learnings
+
+1. **Pivot Column Updates**: When adding fields to junction tables, remember to update BOTH:
+   ```typescript
+   // In ProjectMember model - add the column
+   @column()
+   declare position: string | null
+
+   // In Project model - add to pivotColumns
+   pivotColumns: ['role', 'position', 'joined_at', 'hourly_rate']
+   ```
+
+2. **Ant Design Table Column Types**: When using TypeScript with dynamic columns (especially spread with conditionals), explicitly type as `any[]` to avoid complex type inference issues:
+   ```typescript
+   const memberColumns: any[] = [
+     // ... column definitions
+     ...(isAdmin ? [actionColumn] : [])
+   ];
+   ```
+
+3. **Modal State Management**: For edit modals, store the selected item in state and pass to modal:
+   ```typescript
+   const [selectedMember, setSelectedMember] = useState<ProjectMember | undefined>();
+   const [showModal, setShowModal] = useState(false);
+
+   const handleEdit = (member: ProjectMember) => {
+     setSelectedMember(member);
+     setShowModal(true);
+   };
+
+   const handleClose = () => {
+     setShowModal(false);
+     setSelectedMember(undefined); // Clear on close
+   };
+   ```
+
+4. **Confirmation Dialogs**: Ant Design's `Modal.confirm` is perfect for destructive actions:
+   ```typescript
+   const { confirm } = Modal;
+
+   const handleRemove = (member: ProjectMember) => {
+     confirm({
+       title: "Remove Team Member",
+       content: `Are you sure...`,
+       okText: "Yes, Remove",
+       okType: "danger",
+       onOk: async () => {
+         // async operation
+       }
+     });
+   };
+   ```
+
+5. **Import Organization**: Remember to update import statements when adding icons:
+   - `UserOutlined` was needed for customer display but initially missing
+   - Always check console for import errors during development
+
+### File Changes Summary
+
+**Backend:**
+- `database/migrations/1760505713903_create_add_position_to_project_members_table.ts` (new)
+- `app/models/project_member.ts` (modified) - Added position field
+- `app/models/project.ts` (modified) - Added position to pivot columns
+- `app/validators/projects.ts` (modified) - Added position validators
+- `app/controllers/projects.ts` (modified) - Added updateMember method
+- `start/routes.ts` (modified) - Updated member route
+- `database/seeders/main_seeder.ts` (modified) - Added sample positions
+
+**Frontend:**
+- `src/services/api/types.ts` (modified) - Added ProjectMember types
+- `src/services/api/api.ts` (modified) - Added member management methods
+- `src/components/projects/ProjectMemberModal.tsx` (new) - Edit modal component
+- `src/components/projects/index.ts` (new) - Export modal
+- `src/pages/projects/show.tsx` (modified) - Enhanced team tab with position column and actions
+
+### Testing Status
+
+- ✅ Migration successful
+- ✅ Model updates verified
+- ✅ TypeScript compilation successful (no new errors)
+- ✅ Frontend build successful (no new errors)
+- ⚠️ Manual testing recommended: Test add, edit, remove flows in browser
+
+### UI/UX Improvements Delivered
+
+- **Position Visibility**: Team members now have clear positions displayed (e.g., "Sarah - Technical Lead")
+- **Modal Editing**: Clean, focused editing experience with all fields in one form
+- **Action Buttons**: Explicit Edit and Remove buttons with tooltips
+- **Confirmation Dialogs**: Prevents accidental member removal
+- **Mobile Optimized**: Table scrolls horizontally, modals adapt to screen size
+- **Professional Appearance**: Position field adds important context to team structure
+
+### Future Enhancements
+
+1. Add bulk member operations (assign position to multiple members)
+2. Add position suggestions/autocomplete based on common roles
+3. Add member transfer between projects
+4. Add member activity history
+5. Export team roster with positions to CSV/PDF

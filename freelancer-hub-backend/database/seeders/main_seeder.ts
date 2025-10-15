@@ -1,6 +1,7 @@
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import Tenant from '#models/tenant'
 import User from '#models/user'
+import Customer from '#models/customer'
 import Project from '#models/project'
 import ProjectMember from '#models/project_member'
 import Task from '#models/task'
@@ -20,9 +21,13 @@ export default class extends BaseSeeder {
     console.log('👥 Creating users...')
     const users = await this.createUsers(tenants)
 
+    // Create Customers
+    console.log('🏢 Creating customers...')
+    const customers = await this.createCustomers(tenants)
+
     // Create Projects
     console.log('📁 Creating projects...')
-    const projects = await this.createProjects(tenants, users)
+    const projects = await this.createProjects(tenants, users, customers)
 
     // Create Project Members
     console.log('👨‍💼 Adding project members...')
@@ -227,12 +232,113 @@ export default class extends BaseSeeder {
     return users
   }
 
-  private async createProjects(tenants: { [key: string]: Tenant }, users: { [key: string]: User }) {
+  private async createCustomers(tenants: { [key: string]: Tenant }) {
+    const customersData = [
+      // Acme Corp customers
+      {
+        tenantSlug: 'acme-corp',
+        name: 'TechStart Inc',
+        email: 'contact@techstart.com',
+        phone: '+1 555-0100',
+        company: 'TechStart Inc',
+        addressLine1: '123 Innovation Drive',
+        city: 'San Francisco',
+        state: 'CA',
+        postalCode: '94105',
+        country: 'USA',
+        notes: 'Early-stage startup, very responsive',
+      },
+      {
+        tenantSlug: 'acme-corp',
+        name: 'Global Retail Corp',
+        email: 'projects@globalretail.com',
+        phone: '+1 555-0200',
+        company: 'Global Retail Corp',
+        addressLine1: '456 Commerce Street',
+        city: 'New York',
+        state: 'NY',
+        postalCode: '10001',
+        country: 'USA',
+        notes: 'Large enterprise client, requires detailed reporting',
+      },
+      // Tech Solutions customers
+      {
+        tenantSlug: 'tech-solutions',
+        name: 'Healthcare Solutions Ltd',
+        email: 'info@healthcaresolutions.com',
+        phone: '+1 555-0300',
+        company: 'Healthcare Solutions Ltd',
+        addressLine1: '789 Medical Plaza',
+        city: 'Boston',
+        state: 'MA',
+        postalCode: '02108',
+        country: 'USA',
+        notes: 'Healthcare industry, strict compliance requirements',
+      },
+      // Design Studio customers
+      {
+        tenantSlug: 'design-studio',
+        name: 'Bright Future Startup',
+        email: 'hello@brightfuture.io',
+        phone: '+1 555-0400',
+        company: 'Bright Future',
+        addressLine1: '321 Startup Lane',
+        city: 'Austin',
+        state: 'TX',
+        postalCode: '78701',
+        country: 'USA',
+        notes: 'New client, referred by previous customer',
+      },
+    ]
+
+    const customers: { [key: string]: Customer } = {}
+
+    for (const data of customersData) {
+      const tenant = tenants[data.tenantSlug]
+
+      // Check if customer already exists
+      let customer = await Customer.query()
+        .where('tenant_id', tenant.id)
+        .where('email', data.email)
+        .first()
+
+      if (!customer) {
+        customer = await Customer.create({
+          tenantId: tenant.id,
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          company: data.company,
+          addressLine1: data.addressLine1,
+          city: data.city,
+          state: data.state,
+          postalCode: data.postalCode,
+          country: data.country,
+          notes: data.notes,
+          isActive: true,
+        })
+        console.log(`  ✓ Created customer: ${data.name}`)
+      } else {
+        console.log(`  ⚠ Customer already exists: ${data.name}`)
+      }
+
+      customers[data.email] = customer
+    }
+
+    return customers
+  }
+
+  private async createProjects(
+    tenants: { [key: string]: Tenant },
+    users: { [key: string]: User },
+    customers: { [key: string]: Customer }
+  ) {
     const projectsData = [
       // Acme Corp projects
       {
         tenantSlug: 'acme-corp',
         ownerEmail: 'john@acme-corp.com',
+        customerEmail: 'contact@techstart.com',
         name: 'Website Redesign',
         description: 'Complete redesign of company website with modern UI/UX',
         status: 'active' as const,
@@ -243,6 +349,7 @@ export default class extends BaseSeeder {
       {
         tenantSlug: 'acme-corp',
         ownerEmail: 'sarah@acme-corp.com',
+        customerEmail: 'projects@globalretail.com',
         name: 'Mobile App Development',
         description: 'Native mobile app for iOS and Android',
         status: 'active' as const,
@@ -254,6 +361,7 @@ export default class extends BaseSeeder {
       {
         tenantSlug: 'tech-solutions',
         ownerEmail: 'jane@tech-solutions.com',
+        customerEmail: 'info@healthcaresolutions.com',
         name: 'CRM System',
         description: 'Custom CRM system for client management',
         status: 'active' as const,
@@ -265,6 +373,7 @@ export default class extends BaseSeeder {
       {
         tenantSlug: 'design-studio',
         ownerEmail: 'alex@design-studio.com',
+        customerEmail: 'hello@brightfuture.io',
         name: 'Brand Identity',
         description: 'Complete brand identity package for startup',
         status: 'active' as const,
@@ -279,6 +388,7 @@ export default class extends BaseSeeder {
     for (const data of projectsData) {
       const tenant = tenants[data.tenantSlug]
       const owner = users[data.ownerEmail]
+      const customer = customers[data.customerEmail]
 
       // Check if project already exists
       const existing = await Project.query()
@@ -289,6 +399,7 @@ export default class extends BaseSeeder {
       if (!existing) {
         const project = await Project.create({
           tenantId: tenant.id,
+          customerId: customer?.id,
           name: data.name,
           description: data.description,
           status: data.status,
@@ -302,6 +413,7 @@ export default class extends BaseSeeder {
           projectId: project.id,
           userId: owner.id,
           role: 'owner',
+          position: 'Project Manager',
           joinedAt: DateTime.now(),
         })
 
@@ -319,9 +431,24 @@ export default class extends BaseSeeder {
   private async createProjectMembers(projects: Project[], users: { [key: string]: User }) {
     // Add additional members to projects
     const memberships = [
-      { projectIndex: 0, email: 'sarah@acme-corp.com', role: 'admin' as const },
-      { projectIndex: 1, email: 'john@acme-corp.com', role: 'member' as const },
-      { projectIndex: 2, email: 'mike@tech-solutions.com', role: 'member' as const },
+      {
+        projectIndex: 0,
+        email: 'sarah@acme-corp.com',
+        role: 'admin' as const,
+        position: 'Technical Lead'
+      },
+      {
+        projectIndex: 1,
+        email: 'john@acme-corp.com',
+        role: 'member' as const,
+        position: 'Senior Developer'
+      },
+      {
+        projectIndex: 2,
+        email: 'mike@tech-solutions.com',
+        role: 'member' as const,
+        position: 'Frontend Developer'
+      },
     ]
 
     for (const membership of memberships) {
@@ -339,9 +466,10 @@ export default class extends BaseSeeder {
             projectId: project.id,
             userId: user.id,
             role: membership.role,
+            position: membership.position,
             joinedAt: DateTime.now(),
           })
-          console.log(`  ✓ Added ${user.email} to project as ${membership.role}`)
+          console.log(`  ✓ Added ${user.email} to project as ${membership.role} (${membership.position})`)
         }
       }
     }

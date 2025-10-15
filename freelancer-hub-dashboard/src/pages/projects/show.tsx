@@ -30,6 +30,7 @@ import {
   DollarOutlined,
   CalendarOutlined,
   UserAddOutlined,
+  UserOutlined,
   MailOutlined,
   ReloadOutlined,
   CloseCircleOutlined,
@@ -38,8 +39,9 @@ import { useTenantSlug } from "../../contexts/tenant";
 import { useIsMobile, useIsTablet } from "../../hooks/useMediaQuery";
 import { ResponsiveContainer } from "../../components/responsive";
 import { InviteMemberModal } from "../../components/invitations";
+import { ProjectMemberModal } from "../../components/projects";
 import { Api } from "../../services/api";
-import type { Invitation } from "../../services/api/types";
+import type { Invitation, ProjectMember } from "../../services/api/types";
 import { getErrorMessage } from "../../utils/error";
 
 const { Title, Text } = Typography;
@@ -54,6 +56,8 @@ export const ProjectShow: React.FC = () => {
   const isTablet = useIsTablet();
   const { data: identity } = useGetIdentity();
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showMemberModal, setShowMemberModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<ProjectMember | undefined>();
   const [projectInvitations, setProjectInvitations] = useState<Invitation[]>(
     []
   );
@@ -132,6 +136,42 @@ export const ProjectShow: React.FC = () => {
 
   const handleInviteSuccess = () => {
     fetchProjectInvitations();
+  };
+
+  const handleEditMember = (member: ProjectMember) => {
+    setSelectedMember(member);
+    setShowMemberModal(true);
+  };
+
+  const handleMemberModalClose = () => {
+    setShowMemberModal(false);
+    setSelectedMember(undefined);
+  };
+
+  const handleMemberModalSuccess = () => {
+    // Refetch project data to show updated member
+    window.location.reload();
+  };
+
+  const handleRemoveMember = (member: ProjectMember) => {
+    confirm({
+      title: "Remove Team Member",
+      content: `Are you sure you want to remove ${member.user?.fullName} from this project?`,
+      okText: "Yes, Remove",
+      okType: "danger",
+      cancelText: "Cancel",
+      onOk: async () => {
+        if (!id) return;
+        try {
+          await Api.removeProjectMember(parseInt(id), member.userId);
+          message.success("Team member removed successfully");
+          // Refetch project data
+          window.location.reload();
+        } catch (err) {
+          message.error(getErrorMessage(err));
+        }
+      },
+    });
   };
 
   const handleUpdateMemberRate = async (
@@ -222,7 +262,7 @@ export const ProjectShow: React.FC = () => {
       ? Math.round((taskStats.done / taskStats.total) * 100)
       : 0;
 
-  const memberColumns = [
+  const memberColumns: any[] = [
     {
       title: "Name",
       dataIndex: ["user", "fullName"],
@@ -254,6 +294,18 @@ export const ProjectShow: React.FC = () => {
       ),
     },
     {
+      title: "Position",
+      dataIndex: "position",
+      key: "position",
+      render: (position: string | null) => (
+        position ? (
+          <Text>{position}</Text>
+        ) : (
+          <Text type="secondary" italic>Not set</Text>
+        )
+      ),
+    },
+    {
       title: "Joined",
       dataIndex: "joinedAt",
       key: "joinedAt",
@@ -269,19 +321,7 @@ export const ProjectShow: React.FC = () => {
 
         return (
           <Space direction="vertical" size={0}>
-            {isAdmin ? (
-              <InputNumber
-                value={projectRate}
-                placeholder={
-                  defaultRate ? `Default: $${defaultRate}` : "No default"
-                }
-                prefix="$"
-                min={0.01}
-                step={0.01}
-                style={{ width: 140 }}
-                onChange={(value) => handleUpdateMemberRate(record.id, value)}
-              />
-            ) : effectiveRate ? (
+            {effectiveRate ? (
               <Text>${effectiveRate}/hr</Text>
             ) : (
               <Text type="secondary">Not set</Text>
@@ -300,6 +340,36 @@ export const ProjectShow: React.FC = () => {
         );
       },
     },
+    ...(isAdmin
+      ? [
+          {
+            title: "Actions",
+            key: "actions",
+            width: isMobile ? 80 : 120,
+            render: (_: any, record: ProjectMember) => (
+              <Space size="small">
+                <Tooltip title="Edit member">
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<EditOutlined />}
+                    onClick={() => handleEditMember(record)}
+                  />
+                </Tooltip>
+                <Tooltip title="Remove member">
+                  <Button
+                    type="text"
+                    danger
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleRemoveMember(record)}
+                  />
+                </Tooltip>
+              </Space>
+            ),
+          },
+        ]
+      : []),
   ];
 
   const taskColumns = [
@@ -707,6 +777,16 @@ export const ProjectShow: React.FC = () => {
         onSuccess={handleInviteSuccess}
         projectId={id ? parseInt(id) : undefined}
         projectName={project?.name}
+      />
+
+      {/* Edit Member Modal */}
+      <ProjectMemberModal
+        open={showMemberModal}
+        onClose={handleMemberModalClose}
+        onSuccess={handleMemberModalSuccess}
+        projectId={id ? parseInt(id) : 0}
+        member={selectedMember}
+        isEditMode={true}
       />
     </ResponsiveContainer>
   );

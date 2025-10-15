@@ -14,6 +14,7 @@ import {
   RegisterPayload,
   RegisterResponse,
   UpdateProjectPayload,
+  UpdateProjectMemberPayload,
   UpdateTenantPayload,
   UpdateUserRolePayload,
   SwitchTenantPayload,
@@ -152,10 +153,26 @@ class Api {
     );
   }
 
+  updateProjectMember(projectId: number, memberId: number, data: UpdateProjectMemberPayload) {
+    return this._privateInstance.patch(
+      `/projects/${projectId}/members/${memberId}`,
+      data
+    );
+  }
+
+  /**
+   * @deprecated Use updateProjectMember instead
+   */
   updateProjectMemberRate(projectId: number, memberId: number, data: { hourlyRate: number | null }) {
     return this._privateInstance.patch(
       `/projects/${projectId}/members/${memberId}`,
       data
+    );
+  }
+
+  removeProjectMember(projectId: number, userId: number) {
+    return this._privateInstance.delete(
+      `/projects/${projectId}/members/${userId}`
     );
   }
 

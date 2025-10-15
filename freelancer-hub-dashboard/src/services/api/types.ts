@@ -92,6 +92,36 @@ export type UpdateProjectPayload = {
   slug: string;
 };
 
+// Project Members
+export type ProjectMember = {
+  id: number;
+  projectId: number;
+  userId: number;
+  role: RoleName;
+  position: string | null;
+  hourlyRate: number | null;
+  joinedAt: string;
+  user?: {
+    id: number;
+    email: string;
+    fullName: string;
+    hourlyRate: number | null;
+  };
+};
+
+export type AddProjectMemberPayload = {
+  userId: number;
+  role?: RoleName;
+  position?: string;
+  hourlyRate?: number;
+};
+
+export type UpdateProjectMemberPayload = {
+  role?: RoleName;
+  position?: string;
+  hourlyRate?: number;
+};
+
 // Tasks
 export type Task = {
   id: number;
