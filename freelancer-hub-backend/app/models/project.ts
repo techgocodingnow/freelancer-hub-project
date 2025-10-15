@@ -58,7 +58,7 @@ export default class Project extends BaseModel {
     pivotTable: 'project_members',
     pivotForeignKey: 'project_id',
     pivotRelatedForeignKey: 'user_id',
-    pivotColumns: ['role', 'position', 'joined_at', 'hourly_rate'],
+    pivotColumns: ['role', 'position_id', 'joined_at', 'hourly_rate'],
   })
   declare members: ManyToMany<typeof User>
 }

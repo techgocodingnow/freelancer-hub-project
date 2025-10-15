@@ -31,6 +31,7 @@ const ElectricProxyController = () => import('#controllers/electric_proxy_contro
 const NotificationPreferencesController = () =>
   import('#controllers/notification_preferences_controller')
 const CustomersController = () => import('#controllers/customers')
+const PositionsController = () => import('#controllers/positions')
 
 // Health check (outside API versioning for monitoring)
 router.get('/', async () => {
@@ -182,6 +183,27 @@ router
         router.put('/customers/:id', [CustomersController, 'update'])
         router.patch('/customers/:id', [CustomersController, 'update'])
         router.delete('/customers/:id', [CustomersController, 'destroy'])
+
+        // Positions (tenant-scoped, admin/owner only for mutations)
+        router.get('/positions', [PositionsController, 'index'])
+        router
+          .post('/positions', [PositionsController, 'store'])
+          .use(middleware.requireRole({ roles: ['admin', 'owner'] }))
+        router
+          .patch('/positions/:id', [PositionsController, 'update'])
+          .use(middleware.requireRole({ roles: ['admin', 'owner'] }))
+        router
+          .delete('/positions/:id', [PositionsController, 'destroy'])
+          .use(middleware.requireRole({ roles: ['admin', 'owner'] }))
+        router
+          .post('/positions/:id/restore', [PositionsController, 'restore'])
+          .use(middleware.requireRole({ roles: ['admin', 'owner'] }))
+
+        // Tenant Payment Info
+        router.get('/payment-info', [TenantsController, 'getPaymentInfo'])
+        router
+          .patch('/payment-info', [TenantsController, 'updatePaymentInfo'])
+          .use(middleware.requireRole({ roles: ['owner'] }))
 
         // Users (tenant-scoped with role-based access)
         router.get('/users', [UsersController, 'index'])

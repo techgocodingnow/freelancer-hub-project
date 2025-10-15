@@ -35,7 +35,7 @@ export const addProjectMemberValidator = vine.compile(
   vine.object({
     userId: vine.number().positive(),
     role: vine.enum(['owner', 'admin', 'member', 'viewer']).optional(),
-    position: vine.string().trim().maxLength(255).optional(),
+    positionId: vine.number().positive().optional(),
     hourlyRate: vine.number().min(0.01).optional(),
   })
 )
@@ -46,7 +46,7 @@ export const addProjectMemberValidator = vine.compile(
 export const updateProjectMemberValidator = vine.compile(
   vine.object({
     role: vine.enum(['owner', 'admin', 'member', 'viewer']).optional(),
-    position: vine.string().trim().maxLength(255).optional(),
+    positionId: vine.number().positive().optional(),
     hourlyRate: vine.number().min(0.01).optional(),
   })
 )

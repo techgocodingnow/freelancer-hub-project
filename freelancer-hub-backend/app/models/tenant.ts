@@ -3,6 +3,7 @@ import { BaseModel, column, hasMany, manyToMany } from '@adonisjs/lucid/orm'
 import type { HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import Project from '#models/project'
+import Position from '#models/position'
 import Role from '#models/role'
 import TenantUser from '#models/tenant_user'
 
@@ -22,6 +23,22 @@ export default class Tenant extends BaseModel {
   @column()
   declare isActive: boolean
 
+  // Payment Info
+  @column()
+  declare companyName: string | null
+
+  @column()
+  declare companyAddress: string | null
+
+  @column()
+  declare companyEmail: string | null
+
+  @column()
+  declare companyPhone: string | null
+
+  @column()
+  declare taxId: string | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 
@@ -39,6 +56,9 @@ export default class Tenant extends BaseModel {
 
   @hasMany(() => Project)
   declare projects: HasMany<typeof Project>
+
+  @hasMany(() => Position)
+  declare positions: HasMany<typeof Position>
 
   // Helper methods
   async getUsersWithRole(roleName: string): Promise<User[]> {

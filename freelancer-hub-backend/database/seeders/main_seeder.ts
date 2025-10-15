@@ -2,6 +2,7 @@ import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import Tenant from '#models/tenant'
 import User from '#models/user'
 import Customer from '#models/customer'
+import Position from '#models/position'
 import Project from '#models/project'
 import ProjectMember from '#models/project_member'
 import Task from '#models/task'
@@ -25,13 +26,17 @@ export default class extends BaseSeeder {
     console.log('🏢 Creating customers...')
     const customers = await this.createCustomers(tenants)
 
+    // Create Positions
+    console.log('🏷️  Creating positions...')
+    const positions = await this.createPositions(tenants)
+
     // Create Projects
     console.log('📁 Creating projects...')
-    const projects = await this.createProjects(tenants, users, customers)
+    const projects = await this.createProjects(tenants, users, customers, positions)
 
     // Create Project Members
     console.log('👨‍💼 Adding project members...')
-    await this.createProjectMembers(projects, users)
+    await this.createProjectMembers(projects, users, positions)
 
     // Create Tasks
     console.log('✅ Creating tasks...')
@@ -328,10 +333,56 @@ export default class extends BaseSeeder {
     return customers
   }
 
+  private async createPositions(tenants: { [key: string]: Tenant }) {
+    const positionsData = [
+      'Project Manager',
+      'Technical Lead',
+      'Senior Developer',
+      'Frontend Developer',
+      'Backend Developer',
+      'Full Stack Developer',
+      'Designer',
+      'QA Engineer',
+      'DevOps Engineer',
+      'Product Owner',
+    ]
+
+    const positions: { [key: string]: { [key: string]: Position } } = {}
+
+    for (const [tenantSlug, tenant] of Object.entries(tenants)) {
+      positions[tenantSlug] = {}
+
+      for (const positionName of positionsData) {
+        // Check if position already exists
+        let position = await Position.query()
+          .where('tenant_id', tenant.id)
+          .where('name', positionName)
+          .first()
+
+        if (!position) {
+          position = await Position.create({
+            tenantId: tenant.id,
+            name: positionName,
+            description: null,
+            isActive: true,
+          })
+          console.log(`  ✓ Created position for ${tenantSlug}: ${positionName}`)
+        } else {
+          console.log(`  ⚠ Position already exists for ${tenantSlug}: ${positionName}`)
+        }
+
+        positions[tenantSlug][positionName] = position
+      }
+    }
+
+    return positions
+  }
+
   private async createProjects(
     tenants: { [key: string]: Tenant },
     users: { [key: string]: User },
-    customers: { [key: string]: Customer }
+    customers: { [key: string]: Customer },
+    positions: { [key: string]: { [key: string]: Position } }
   ) {
     const projectsData = [
       // Acme Corp projects
@@ -409,11 +460,12 @@ export default class extends BaseSeeder {
         })
 
         // Add owner as project member
+        const pmPosition = positions[data.tenantSlug]['Project Manager']
         await ProjectMember.create({
           projectId: project.id,
           userId: owner.id,
           role: 'owner',
-          position: 'Project Manager',
+          positionId: pmPosition?.id || null,
           joinedAt: DateTime.now(),
         })
 
@@ -428,32 +480,40 @@ export default class extends BaseSeeder {
     return projects
   }
 
-  private async createProjectMembers(projects: Project[], users: { [key: string]: User }) {
+  private async createProjectMembers(
+    projects: Project[],
+    users: { [key: string]: User },
+    positions: { [key: string]: { [key: string]: Position } }
+  ) {
     // Add additional members to projects
     const memberships = [
       {
         projectIndex: 0,
+        tenantSlug: 'acme-corp',
         email: 'sarah@acme-corp.com',
         role: 'admin' as const,
-        position: 'Technical Lead'
+        positionName: 'Technical Lead',
       },
       {
         projectIndex: 1,
+        tenantSlug: 'acme-corp',
         email: 'john@acme-corp.com',
         role: 'member' as const,
-        position: 'Senior Developer'
+        positionName: 'Senior Developer',
       },
       {
         projectIndex: 2,
+        tenantSlug: 'tech-solutions',
         email: 'mike@tech-solutions.com',
         role: 'member' as const,
-        position: 'Frontend Developer'
+        positionName: 'Frontend Developer',
       },
     ]
 
     for (const membership of memberships) {
       const project = projects[membership.projectIndex]
       const user = users[membership.email]
+      const position = positions[membership.tenantSlug][membership.positionName]
 
       if (project && user) {
         const existing = await ProjectMember.query()
@@ -466,10 +526,12 @@ export default class extends BaseSeeder {
             projectId: project.id,
             userId: user.id,
             role: membership.role,
-            position: membership.position,
+            positionId: position?.id || null,
             joinedAt: DateTime.now(),
           })
-          console.log(`  ✓ Added ${user.email} to project as ${membership.role} (${membership.position})`)
+          console.log(
+            `  ✓ Added ${user.email} to project as ${membership.role} (${membership.positionName})`
+          )
         }
       }
     }

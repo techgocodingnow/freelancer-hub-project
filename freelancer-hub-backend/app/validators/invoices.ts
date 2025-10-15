@@ -26,7 +26,6 @@ export const createInvoiceValidator = vine.compile(
       .optional(),
 
     duration: vine.enum(['1week', '2weeks', '1month']),
-    toEmail: vine.string().email().optional(),
     items: vine
       .array(
         vine.object({

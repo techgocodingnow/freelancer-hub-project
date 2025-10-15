@@ -57,7 +57,7 @@ export default class ProjectsController {
       })
       .preload('members')
       .preload('projectMembers', (query) => {
-        query.preload('user')
+        query.preload('user').preload('position')
       })
       .first()
 
@@ -244,12 +244,13 @@ export default class ProjectsController {
       projectId: project.id,
       userId: data.userId,
       role: data.role || 'member',
-      position: data.position || null,
+      positionId: data.positionId || null,
       hourlyRate: data.hourlyRate || null,
       joinedAt: DateTime.now(),
     })
 
     await newMember.load('user')
+    await newMember.load('position')
 
     return response.created({ data: newMember })
   }
@@ -342,11 +343,12 @@ export default class ProjectsController {
 
     // Update fields if provided
     if (data.role !== undefined) memberToUpdate.role = data.role
-    if (data.position !== undefined) memberToUpdate.position = data.position || null
+    if (data.positionId !== undefined) memberToUpdate.positionId = data.positionId || null
     if (data.hourlyRate !== undefined) memberToUpdate.hourlyRate = data.hourlyRate || null
 
     await memberToUpdate.save()
     await memberToUpdate.load('user')
+    await memberToUpdate.load('position')
 
     return response.ok({ data: memberToUpdate })
   }

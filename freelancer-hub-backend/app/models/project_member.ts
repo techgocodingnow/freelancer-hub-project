@@ -3,6 +3,7 @@ import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Project from '#models/project'
 import User from '#models/user'
+import Position from '#models/position'
 
 export default class ProjectMember extends BaseModel {
   @column({ isPrimary: true })
@@ -18,7 +19,7 @@ export default class ProjectMember extends BaseModel {
   declare role: 'owner' | 'admin' | 'member' | 'viewer'
 
   @column()
-  declare position: string | null
+  declare positionId: number | null
 
   @column()
   declare hourlyRate: number | null
@@ -38,5 +39,8 @@ export default class ProjectMember extends BaseModel {
 
   @belongsTo(() => User)
   declare user: BelongsTo<typeof User>
+
+  @belongsTo(() => Position)
+  declare position: BelongsTo<typeof Position>
 }
 

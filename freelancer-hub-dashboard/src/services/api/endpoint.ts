@@ -36,6 +36,7 @@ const ENDPOINTS = {
     create: "/tenants",
     update: "/tenants/:tenantId",
     delete: "/tenants/:tenantId",
+    paymentInfo: "/payment-info",
   },
   users: {
     list: "/users",
@@ -80,6 +81,14 @@ const ENDPOINTS = {
     update: "/customers/:customerId",
     delete: "/customers/:customerId",
     search: "/customers/search",
+  },
+  positions: {
+    list: "/positions",
+    create: "/positions",
+    one: "/positions/:positionId",
+    update: "/positions/:positionId",
+    delete: "/positions/:positionId",
+    restore: "/positions/:positionId/restore",
   },
   invoices: {
     list: "/invoices",

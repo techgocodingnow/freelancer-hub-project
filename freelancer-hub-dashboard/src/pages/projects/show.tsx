@@ -297,9 +297,9 @@ export const ProjectShow: React.FC = () => {
       title: "Position",
       dataIndex: "position",
       key: "position",
-      render: (position: string | null) => (
-        position ? (
-          <Text>{position}</Text>
+      render: (_: any, record: ProjectMember) => (
+        record.position?.name ? (
+          <Text>{record.position.name}</Text>
         ) : (
           <Text type="secondary" italic>Not set</Text>
         )

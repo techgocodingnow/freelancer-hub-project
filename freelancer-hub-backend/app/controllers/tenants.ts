@@ -1,5 +1,6 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Tenant from '#models/tenant'
+import { updateTenantPaymentInfoValidator } from '#validators/tenant_settings'
 
 export default class TenantsController {
   /**
@@ -49,5 +50,46 @@ export default class TenantsController {
     }
 
     return response.ok({ data: tenant })
+  }
+
+  /**
+   * Get tenant payment info (accessible to all authenticated users in the tenant)
+   */
+  async getPaymentInfo({ tenant, response }: HttpContext) {
+    return response.ok({
+      data: {
+        companyName: tenant.companyName,
+        companyAddress: tenant.companyAddress,
+        companyEmail: tenant.companyEmail,
+        companyPhone: tenant.companyPhone,
+        taxId: tenant.taxId,
+      },
+    })
+  }
+
+  /**
+   * Update tenant payment info (owner only - enforced by middleware)
+   */
+  async updatePaymentInfo({ tenant, request, response }: HttpContext) {
+    const data = await request.validateUsing(updateTenantPaymentInfoValidator)
+
+    tenant.companyName = data.companyName ?? tenant.companyName
+    tenant.companyAddress = data.companyAddress ?? tenant.companyAddress
+    tenant.companyEmail = data.companyEmail ?? tenant.companyEmail
+    tenant.companyPhone = data.companyPhone ?? tenant.companyPhone
+    tenant.taxId = data.taxId ?? tenant.taxId
+
+    await tenant.save()
+
+    return response.ok({
+      data: {
+        companyName: tenant.companyName,
+        companyAddress: tenant.companyAddress,
+        companyEmail: tenant.companyEmail,
+        companyPhone: tenant.companyPhone,
+        taxId: tenant.taxId,
+      },
+      message: 'Payment information updated successfully',
+    })
   }
 }

@@ -3,14 +3,13 @@ import {
   Modal,
   Form,
   Select,
-  Input,
   InputNumber,
   message,
   Typography,
 } from "antd";
 import { Api } from "../../services/api";
 import { getErrorMessage } from "../../utils/error";
-import type { ProjectMember, RoleName } from "../../services/api/types";
+import type { ProjectMember, RoleName, Position } from "../../services/api/types";
 
 const { Text } = Typography;
 
@@ -41,12 +40,29 @@ export const ProjectMemberModal: React.FC<ProjectMemberModalProps> = ({
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [selectedUserRate, setSelectedUserRate] = useState<number | null>(null);
+  const [positions, setPositions] = useState<Position[]>([]);
+
+  // Fetch positions when modal opens
+  useEffect(() => {
+    const fetchPositions = async () => {
+      try {
+        const response = await Api.getPositions({ showInactive: false });
+        setPositions(response.data.data);
+      } catch (error: any) {
+        message.error("Failed to fetch positions");
+      }
+    };
+
+    if (open) {
+      fetchPositions();
+    }
+  }, [open]);
 
   useEffect(() => {
     if (open && isEditMode && member) {
       form.setFieldsValue({
         role: member.role,
-        position: member.position,
+        positionId: member.positionId,
         hourlyRate: member.hourlyRate,
       });
       setSelectedUserRate(member.user?.hourlyRate || null);
@@ -76,7 +92,7 @@ export const ProjectMemberModal: React.FC<ProjectMemberModalProps> = ({
         // Update existing member
         await Api.updateProjectMember(projectId, member.id, {
           role: values.role,
-          position: values.position || null,
+          positionId: values.positionId || null,
           hourlyRate: values.hourlyRate || null,
         });
         message.success("Team member updated successfully");
@@ -169,12 +185,21 @@ export const ProjectMemberModal: React.FC<ProjectMemberModalProps> = ({
 
         <Form.Item
           label="Position"
-          name="position"
-          tooltip="The member's role or position in the project (e.g., Frontend Developer, Project Manager)"
+          name="positionId"
+          tooltip="The member's position/title in the project"
         >
-          <Input
-            placeholder="e.g., Frontend Developer, Designer"
-            maxLength={255}
+          <Select
+            placeholder="Select a position (optional)"
+            showSearch
+            allowClear
+            optionFilterProp="children"
+            filterOption={(input, option) =>
+              (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+            }
+            options={positions.map((pos) => ({
+              value: pos.id,
+              label: pos.name,
+            }))}
           />
         </Form.Item>
 

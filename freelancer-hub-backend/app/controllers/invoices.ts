@@ -280,9 +280,9 @@ export default class InvoicesController {
       amountPaid: 0,
       currency: 'USD',
       clientName: customer.name,
-      clientEmail: data.toEmail || customer.email,
+      clientEmail: customer.email,
       clientAddress: clientAddress || null,
-      sentTo: data.toEmail || customer.email,
+      sentTo: customer.email,
     })
 
     // Create invoice_projects records

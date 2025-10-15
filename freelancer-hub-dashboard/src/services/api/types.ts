@@ -92,13 +92,35 @@ export type UpdateProjectPayload = {
   slug: string;
 };
 
+// Positions
+export type Position = {
+  id: number;
+  tenantId: number;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string | null;
+};
+
+export type CreatePositionPayload = {
+  name: string;
+  description?: string;
+};
+
+export type UpdatePositionPayload = {
+  name?: string;
+  description?: string;
+  isActive?: boolean;
+};
+
 // Project Members
 export type ProjectMember = {
   id: number;
   projectId: number;
   userId: number;
   role: RoleName;
-  position: string | null;
+  positionId: number | null;
   hourlyRate: number | null;
   joinedAt: string;
   user?: {
@@ -107,18 +129,19 @@ export type ProjectMember = {
     fullName: string;
     hourlyRate: number | null;
   };
+  position?: Position;
 };
 
 export type AddProjectMemberPayload = {
   userId: number;
   role?: RoleName;
-  position?: string;
+  positionId?: number;
   hourlyRate?: number;
 };
 
 export type UpdateProjectMemberPayload = {
   role?: RoleName;
-  position?: string;
+  positionId?: number;
   hourlyRate?: number;
 };
 
@@ -228,6 +251,23 @@ export type CreateTenantPayload = {
   name: string;
   slug: string;
   description: string;
+};
+
+// Tenant Payment Info
+export type TenantPaymentInfo = {
+  companyName: string | null;
+  companyAddress: string | null;
+  companyEmail: string | null;
+  companyPhone: string | null;
+  taxId: string | null;
+};
+
+export type UpdateTenantPaymentInfoPayload = {
+  companyName?: string;
+  companyAddress?: string;
+  companyEmail?: string;
+  companyPhone?: string;
+  taxId?: string;
 };
 
 export type GetTenantsResponse = {

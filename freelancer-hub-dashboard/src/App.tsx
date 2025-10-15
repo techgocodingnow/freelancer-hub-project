@@ -64,7 +64,7 @@ import {
   InvoiceCreate,
   FinancialDashboard,
 } from "./pages/financials";
-import { WiseAccountSetup } from "./pages/settings";
+import { WiseAccountSetup, PositionList, PaymentInfoSettings } from "./pages/settings";
 import NotificationPreferences from "./pages/settings/NotificationPreferences";
 import { TimerWidget } from "./components/timer/TimerWidget";
 import { ForgotPassword } from "./pages/forgotPassword";
@@ -275,6 +275,14 @@ function App() {
                         <Route
                           path="notifications"
                           element={<NotificationPreferences />}
+                        />
+                        <Route
+                          path="positions"
+                          element={<PositionList />}
+                        />
+                        <Route
+                          path="payment-info"
+                          element={<PaymentInfoSettings />}
                         />
                       </Route>
                       <Route path="*" element={<ErrorComponent />} />

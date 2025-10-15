@@ -210,12 +210,6 @@ export const InvoiceCreate: React.FC = () => {
   const handleCustomerChange = (customerId: number) => {
     setSelectedCustomerId(customerId);
     form.setFieldsValue({ customerId });
-
-    // Update customer email in toEmail field
-    const customer = customers.find((c) => c.id === customerId);
-    if (customer && customer.email) {
-      form.setFieldsValue({ toEmail: customer.email });
-    }
   };
 
   const handleAddProject = (projectId: number) => {
@@ -366,9 +360,6 @@ export const InvoiceCreate: React.FC = () => {
       // Add optional fields
       if (values.customerId) {
         invoiceData.customerId = values.customerId;
-      }
-      if (values.toEmail) {
-        invoiceData.toEmail = values.toEmail;
       }
 
       // Add projects if any configured
@@ -549,18 +540,6 @@ export const InvoiceCreate: React.FC = () => {
                   <Select.Option value="2weeks">2 Weeks</Select.Option>
                   <Select.Option value="1month">1 Month</Select.Option>
                 </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={[16, 0]}>
-            <Col xs={24}>
-              <Form.Item label="To Email" name="toEmail">
-                <Input
-                  placeholder="recipient@example.com"
-                  size="large"
-                  type="email"
-                />
               </Form.Item>
             </Col>
           </Row>

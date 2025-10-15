@@ -39,6 +39,11 @@ import {
   UpdatePreferenceResponse,
   MuteAllResponse,
   DefaultPreferencesResponse,
+  Position,
+  CreatePositionPayload,
+  UpdatePositionPayload,
+  TenantPaymentInfo,
+  UpdateTenantPaymentInfoPayload,
 } from "./types";
 import ENDPOINTS from "./endpoint";
 class Api {
@@ -248,6 +253,20 @@ class Api {
     return this._privateInstance.delete(
       ENDPOINTS.tenants.delete.replace(":tenantId", id.toString())
     );
+  }
+
+  // Tenant Payment Info
+  getTenantPaymentInfo() {
+    return this._privateInstance.get<null, AxiosResponse<{ data: TenantPaymentInfo }>>(
+      ENDPOINTS.tenants.paymentInfo
+    );
+  }
+
+  updateTenantPaymentInfo(data: UpdateTenantPaymentInfoPayload) {
+    return this._privateInstance.patch<
+      UpdateTenantPaymentInfoPayload,
+      AxiosResponse<{ data: TenantPaymentInfo; message: string }>
+    >(ENDPOINTS.tenants.paymentInfo, data);
   }
 
   // Users
@@ -474,6 +493,48 @@ class Api {
     return this._privateInstance.get(ENDPOINTS.customers.search, {
       params: { q, limit },
     });
+  }
+
+  // Positions
+  getPositions(params?: { showInactive?: boolean }) {
+    return this._privateInstance.get<null, AxiosResponse<{ data: Position[] }>>(
+      ENDPOINTS.positions.list,
+      { params }
+    );
+  }
+
+  getPosition(id: number) {
+    return this._privateInstance.get<null, AxiosResponse<{ data: Position }>>(
+      ENDPOINTS.positions.one.replace(":positionId", id.toString())
+    );
+  }
+
+  createPosition(data: CreatePositionPayload) {
+    return this._privateInstance.post<
+      CreatePositionPayload,
+      AxiosResponse<{ data: Position }>
+    >(ENDPOINTS.positions.create, data);
+  }
+
+  updatePosition(id: number, data: UpdatePositionPayload) {
+    return this._privateInstance.patch<
+      UpdatePositionPayload,
+      AxiosResponse<{ data: Position }>
+    >(ENDPOINTS.positions.update.replace(":positionId", id.toString()), data);
+  }
+
+  deletePosition(id: number) {
+    return this._privateInstance.delete<
+      null,
+      AxiosResponse<{ data: Position; message: string }>
+    >(ENDPOINTS.positions.delete.replace(":positionId", id.toString()));
+  }
+
+  restorePosition(id: number) {
+    return this._privateInstance.patch<
+      null,
+      AxiosResponse<{ data: Position; message: string }>
+    >(ENDPOINTS.positions.restore.replace(":positionId", id.toString()));
   }
 
   // Invoices

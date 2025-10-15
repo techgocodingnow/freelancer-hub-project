@@ -13,6 +13,8 @@ import {
   BankOutlined,
   ClockCircleOutlined,
   UserOutlined,
+  SettingOutlined,
+  IdcardOutlined,
 } from "@ant-design/icons";
 
 /**
@@ -159,6 +161,35 @@ export const RefineWithTenant: React.FC<
           parent: "financials",
           canDelete: false,
           icon: <FileTextOutlined />,
+        },
+      },
+      {
+        name: "settings",
+        list: `/tenants/${slug}/settings`,
+        meta: {
+          label: "Settings",
+          canDelete: false,
+          icon: <SettingOutlined />,
+        },
+      },
+      {
+        name: "positions",
+        list: `/tenants/${slug}/settings/positions`,
+        meta: {
+          label: "Positions",
+          parent: "settings",
+          canDelete: false,
+          icon: <IdcardOutlined />,
+        },
+      },
+      {
+        name: "payment-info",
+        list: `/tenants/${slug}/settings/payment-info`,
+        meta: {
+          label: "Payment Info",
+          parent: "settings",
+          canDelete: false,
+          icon: <BankOutlined />,
         },
       },
       {
