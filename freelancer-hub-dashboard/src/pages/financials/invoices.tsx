@@ -34,6 +34,7 @@ import {
 import { useNavigate, useParams } from "react-router";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { ResponsiveContainer } from "../../components/responsive";
+import { SendInvoiceModal } from "../../components/SendInvoiceModal";
 import dayjs from "dayjs";
 import { tokens } from "../../theme/tokens";
 
@@ -47,6 +48,8 @@ export const InvoiceManagement: React.FC = () => {
   // State
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isSendModalOpen, setIsSendModalOpen] = useState(false);
+  const [invoiceToSend, setInvoiceToSend] = useState<any>(null);
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | undefined>(
     undefined
@@ -106,33 +109,49 @@ export const InvoiceManagement: React.FC = () => {
   };
 
   // View invoice details
-  const handleViewDetails = (invoice: any) => {
-    setSelectedInvoice(invoice);
-    setIsDetailsModalOpen(true);
+  const handleViewDetails = (invoiceId: number) => {
+    navigate(`/tenants/${slug}/financials/invoices/${invoiceId}/show`);
   };
 
   // Send invoice email
-  const handleSendEmail = (invoiceId: number) => {
-    Modal.confirm({
-      title: "Send Invoice",
-      content: "Are you sure you want to send this invoice via email?",
-      okText: "Send",
-      onOk: () => {
-        sendEmail(
-          {
-            url: "",
-            method: "post",
-            values: {},
-            config: { headers: {} },
-            meta: { resource: `invoices/${invoiceId}/send` },
+  const handleSendEmail = (invoice: any) => {
+    setInvoiceToSend(invoice);
+    setIsSendModalOpen(true);
+  };
+
+  // Handle send invoice form submission
+  const handleSendInvoiceSubmit = async (values: {
+    email: string;
+    ccEmails?: string[];
+    subject?: string;
+    message?: string;
+  }) => {
+    return new Promise<void>((resolve, reject) => {
+      sendEmail(
+        {
+          url: "",
+          method: "post",
+          values: {
+            email: values.email,
+            ccEmails: values.ccEmails?.filter((email) => email && email.trim()),
+            subject: values.subject,
+            message: values.message,
           },
-          {
-            onSuccess: () => {
-              refetch();
-            },
-          }
-        );
-      },
+          config: { headers: {} },
+          meta: { resource: `invoices/${invoiceToSend?.id}/send` },
+        },
+        {
+          onSuccess: () => {
+            refetch();
+            setIsSendModalOpen(false);
+            setInvoiceToSend(null);
+            resolve();
+          },
+          onError: (error: any) => {
+            reject(new Error(error?.message || "Failed to send invoice"));
+          },
+        }
+      );
     });
   };
 
@@ -269,7 +288,7 @@ export const InvoiceManagement: React.FC = () => {
           <Button
             type="link"
             icon={<EyeOutlined />}
-            onClick={() => handleViewDetails(record)}
+            onClick={() => handleViewDetails(record.id)}
             size="small"
           >
             {isMobile ? "" : "View"}
@@ -291,7 +310,7 @@ export const InvoiceManagement: React.FC = () => {
               <Button
                 type="link"
                 icon={<MailOutlined />}
-                onClick={() => handleSendEmail(record.id)}
+                onClick={() => handleSendEmail(record)}
                 size="small"
               >
                 {isMobile ? "" : "Send"}
@@ -618,6 +637,19 @@ export const InvoiceManagement: React.FC = () => {
           </Descriptions>
         )}
       </Modal>
+
+      {/* Send Invoice Modal */}
+      <SendInvoiceModal
+        visible={isSendModalOpen}
+        invoiceId={invoiceToSend?.id || null}
+        invoiceNumber={invoiceToSend?.invoiceNumber}
+        defaultEmail={invoiceToSend?.clientEmail || invoiceToSend?.sentTo}
+        onCancel={() => {
+          setIsSendModalOpen(false);
+          setInvoiceToSend(null);
+        }}
+        onSubmit={handleSendInvoiceSubmit}
+      />
     </ResponsiveContainer>
   );
 };

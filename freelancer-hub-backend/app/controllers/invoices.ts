@@ -9,7 +9,13 @@ import db from '@adonisjs/lucid/services/db'
 import { DateTime } from 'luxon'
 import pdfService from '#services/pdf_service'
 import emailService from '#services/email_service'
-import { createInvoiceValidator } from '#validators/invoices'
+import {
+  createInvoiceValidator,
+  generateInvoiceValidator,
+  sendInvoiceValidator,
+  updateInvoiceValidator,
+} from '#validators/invoices'
+import invoiceService from '#services/invoice_service'
 
 export default class InvoicesController {
   /**
@@ -62,7 +68,9 @@ export default class InvoicesController {
   /**
    * Get a single invoice
    */
-  async show({ tenant, params, response }: HttpContext) {
+  async show({ tenant, auth, userRole, params, response }: HttpContext) {
+    const user = auth.getUserOrFail()
+
     const invoice = await Invoice.query()
       .where('id', params.id)
       .where('tenant_id', tenant.id)
@@ -77,6 +85,19 @@ export default class InvoicesController {
 
     if (!invoice) {
       return response.notFound({ error: 'Invoice not found' })
+    }
+
+    // Permission check: Admin/Owner/Viewer can view all, Members can only view their own
+    if (!userRole.canViewAllInvoices()) {
+      if (userRole.isMember() && invoice.userId !== user.id) {
+        return response.forbidden({
+          error: 'You can only view invoices you created',
+        })
+      } else if (!userRole.isMember()) {
+        return response.forbidden({
+          error: 'Insufficient permissions to view invoices',
+        })
+      }
     }
 
     return response.ok(invoice)
@@ -377,6 +398,466 @@ export default class InvoicesController {
   }
 
   /**
+   * Update an existing invoice
+   * Only draft invoices can be updated
+   */
+  async update({ tenant, auth, params, request, response }: HttpContext) {
+    const user = auth.getUserOrFail()
+    const data = await request.validateUsing(updateInvoiceValidator)
+
+    // Load existing invoice
+    const invoice = await Invoice.query()
+      .where('id', params.id)
+      .where('tenant_id', tenant.id)
+      .preload('items')
+      .preload('projects')
+      .first()
+
+    if (!invoice) {
+      return response.notFound({ error: 'Invoice not found' })
+    }
+
+    // Only draft invoices can be edited
+    if (invoice.status !== 'draft') {
+      return response.badRequest({
+        error: 'Only draft invoices can be edited',
+      })
+    }
+
+    // Normalize input: convert old format to new format for consistency
+    let projectConfigs: Array<{ projectId: number }> = []
+
+    if (data.projectIds && data.projectIds.length > 0) {
+      // New format: multiple projects
+      projectConfigs = data.projectIds
+    } else if (data.projectId) {
+      // Old format: single project (backward compatibility)
+      projectConfigs = [{ projectId: data.projectId }]
+    }
+
+    // Determine customer (use existing if not provided)
+    let customerId: number | null = data.customerId || invoice.customerId
+
+    // If no customer provided and projects changed, try to get from first project
+    if (!customerId && projectConfigs.length > 0) {
+      const firstProject = await Project.query()
+        .where('id', projectConfigs[0].projectId)
+        .where('tenant_id', tenant.id)
+        .first()
+
+      if (firstProject && firstProject.customerId) {
+        customerId = firstProject.customerId
+      }
+    }
+
+    if (!customerId) {
+      return response.badRequest({
+        error: 'Customer ID is required',
+      })
+    }
+
+    // Fetch customer
+    const customer = await Customer.query()
+      .where('id', customerId)
+      .where('tenant_id', tenant.id)
+      .first()
+
+    if (!customer) {
+      return response.notFound({ error: 'Customer not found' })
+    }
+
+    // Calculate date range if provided
+    const now = DateTime.now()
+    let startDate: DateTime | null = null
+    let endDate: DateTime | null = null
+
+    if (data.startDate && data.endDate) {
+      // Use custom date range
+      startDate = DateTime.fromJSDate(data.startDate)
+      endDate = DateTime.fromJSDate(data.endDate)
+    } else if (data.duration) {
+      // Use predefined duration (backward from today)
+      switch (data.duration) {
+        case '1week':
+          startDate = now.minus({ days: 7 })
+          endDate = now
+          break
+        case '2weeks':
+          startDate = now.minus({ days: 14 })
+          endDate = now
+          break
+        case '1month':
+          startDate = now.minus({ days: 30 })
+          endDate = now
+          break
+        case '3months':
+          startDate = now.minus({ days: 90 })
+          endDate = now
+          break
+        case '6months':
+          startDate = now.minus({ days: 180 })
+          endDate = now
+          break
+        case '1year':
+          startDate = now.minus({ days: 365 })
+          endDate = now
+          break
+      }
+    }
+
+    const allItems: Array<{
+      description: string
+      quantity: number
+      unit: string
+      unitPrice: number
+      amount: number
+    }> = []
+
+    const invoiceProjectData: Array<{ projectId: number }> = []
+
+    // Process each project and generate line items (same logic as store)
+    for (const projectConfig of projectConfigs) {
+      const project = await Project.query()
+        .where('id', projectConfig.projectId)
+        .where('tenant_id', tenant.id)
+        .first()
+
+      if (!project) {
+        return response.notFound({ error: `Project ${projectConfig.projectId} not found` })
+      }
+
+      invoiceProjectData.push({
+        projectId: project.id,
+      })
+
+      // Fetch time entries for this project with member-specific rates (if date range provided)
+      if (startDate && endDate) {
+        const timeEntriesQuery = db
+          .from('time_entries')
+          .join('tasks', 'time_entries.task_id', 'tasks.id')
+          .join('users', 'time_entries.user_id', 'users.id')
+          .leftJoin('project_members', function () {
+            this.on('project_members.user_id', 'users.id').andOn(
+              'project_members.project_id',
+              'tasks.project_id'
+            )
+          })
+          .where('tasks.project_id', project.id)
+          .where('time_entries.billable', true)
+          .where('time_entries.date', '>=', startDate.toISODate()!)
+          .where('time_entries.date', '<=', endDate.toISODate()!)
+          .select(
+            'time_entries.user_id',
+            'users.full_name as user_name',
+            'users.hourly_rate as user_default_rate',
+            'project_members.hourly_rate as project_specific_rate',
+            db.raw('SUM(time_entries.duration_minutes) as total_minutes')
+          )
+          .groupBy(
+            'time_entries.user_id',
+            'users.full_name',
+            'users.hourly_rate',
+            'project_members.hourly_rate'
+          )
+
+        const timeEntries = await timeEntriesQuery
+
+        // Generate line items per member for this project using rate resolution
+        for (const entry of timeEntries) {
+          const hours = Number(entry.total_minutes) / 60
+
+          // Rate priority: project-specific > user default > 0 fallback
+          const projectSpecificRate = entry.project_specific_rate
+            ? Number(entry.project_specific_rate)
+            : null
+          const userDefaultRate = entry.user_default_rate ? Number(entry.user_default_rate) : null
+          const effectiveRate = projectSpecificRate ?? userDefaultRate ?? 0
+
+          allItems.push({
+            description: `Work by ${entry.user_name} on ${project.name}`,
+            quantity: Math.round(hours * 100) / 100,
+            unit: 'hours',
+            unitPrice: effectiveRate,
+            amount: hours * effectiveRate,
+          })
+        }
+      }
+    }
+
+    // Add manual line items
+    if (data.items && data.items.length > 0) {
+      for (const item of data.items) {
+        allItems.push({
+          description: item.description,
+          quantity: item.quantity,
+          unit: 'unit',
+          unitPrice: item.unitPrice,
+          amount: item.quantity * item.unitPrice,
+        })
+      }
+    }
+
+    // Calculate totals
+    const subtotal = allItems.reduce((sum, item) => sum + item.amount, 0)
+
+    // Calculate tax
+    let taxRate = invoice.taxRate
+    let taxAmount = invoice.taxAmount
+    if (data.taxRate !== undefined) {
+      taxRate = data.taxRate
+      taxAmount = subtotal * (taxRate / 100)
+    } else if (data.taxAmount !== undefined) {
+      taxAmount = data.taxAmount
+    }
+
+    // Calculate discount
+    let discountAmount = invoice.discountAmount
+    if (data.discountRate !== undefined) {
+      discountAmount = subtotal * (data.discountRate / 100)
+    } else if (data.discountAmount !== undefined) {
+      discountAmount = data.discountAmount
+    }
+
+    const totalAmount = subtotal + taxAmount - discountAmount
+
+    // Prepare client info
+    const clientAddress = [
+      customer.addressLine1,
+      customer.addressLine2,
+      customer.city,
+      customer.state,
+      customer.postalCode,
+      customer.country,
+    ]
+      .filter(Boolean)
+      .join(', ')
+
+    // Determine issue and due dates
+    const issueDate = data.issueDate ? DateTime.fromJSDate(data.issueDate) : invoice.issueDate
+    const dueDate = data.dueDate ? DateTime.fromJSDate(data.dueDate) : invoice.dueDate
+
+    // Use transaction to update invoice and related records
+    const trx = await db.transaction()
+
+    try {
+      // Update invoice
+      invoice.customerId = customer.id
+      invoice.projectId = projectConfigs.length > 0 ? projectConfigs[0].projectId : null
+      invoice.issueDate = issueDate
+      invoice.dueDate = dueDate
+      invoice.subtotal = subtotal
+      invoice.taxRate = taxRate
+      invoice.taxAmount = taxAmount
+      invoice.discountAmount = discountAmount
+      invoice.totalAmount = totalAmount
+      invoice.notes = data.notes !== undefined ? data.notes : invoice.notes
+      invoice.clientName = customer.name
+      invoice.clientEmail = customer.email
+      invoice.clientAddress = clientAddress || null
+      invoice.sentTo = customer.email
+
+      await invoice.useTransaction(trx).save()
+
+      // Delete existing invoice_projects relationships
+      await trx.from('invoice_projects').where('invoice_id', invoice.id).delete()
+
+      // Create new invoice_projects records
+      for (const projectData of invoiceProjectData) {
+        await InvoiceProject.create(
+          {
+            invoiceId: invoice.id,
+            projectId: projectData.projectId,
+          },
+          { client: trx }
+        )
+      }
+
+      // Delete existing invoice items
+      await trx.from('invoice_items').where('invoice_id', invoice.id).delete()
+
+      // Create new invoice items
+      for (const item of allItems) {
+        await InvoiceItem.create(
+          {
+            invoiceId: invoice.id,
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            unitPrice: item.unitPrice,
+            amount: item.amount,
+          },
+          { client: trx }
+        )
+      }
+
+      await trx.commit()
+
+      // Load relationships
+      await invoice.load('user')
+      await invoice.load('customer')
+      await invoice.load('projects')
+      await invoice.load('items')
+
+      return response.ok({ data: invoice })
+    } catch (error) {
+      await trx.rollback()
+      throw error
+    }
+  }
+
+  /**
+   * Generate invoice from time entries with automatic line item calculation
+   * Supports multiple projects and per-member hourly rates
+   */
+  async generate({ tenant, auth, userRole, request, response }: HttpContext) {
+    const user = auth.getUserOrFail()
+
+    if (!userRole.isOwner()) {
+      return response.forbidden({
+        error: 'Only tenant owners can generate invoices',
+      })
+    }
+
+    const data = await request.validateUsing(generateInvoiceValidator)
+
+    const customer = await Customer.query()
+      .where('id', data.customerId)
+      .where('tenant_id', tenant.id)
+      .first()
+
+    if (!customer) {
+      return response.notFound({ error: 'Customer not found' })
+    }
+
+    for (const projectId of data.projectIds) {
+      const project = await Project.query()
+        .where('id', projectId)
+        .where('tenant_id', tenant.id)
+        .first()
+
+      if (!project) {
+        return response.notFound({ error: `Project with ID ${projectId} not found` })
+      }
+    }
+
+    const result = await invoiceService.generateLineItems({
+      customerId: data.customerId,
+      projectIds: data.projectIds,
+      startDate: DateTime.fromJSDate(data.startDate),
+      endDate: DateTime.fromJSDate(data.endDate),
+      tenantId: tenant.id,
+      taxRate: data.taxRate,
+      discountAmount: data.discountAmount,
+    })
+
+    if (result.lineItems.length === 0) {
+      return response.badRequest({
+        error: 'No billable time entries found for the specified projects and date range',
+        warnings: result.warnings,
+      })
+    }
+
+    const trx = await db.transaction()
+
+    try {
+      const invoiceNumber = await invoiceService.generateInvoiceNumber(tenant.id)
+
+      const clientAddress = [
+        customer.addressLine1,
+        customer.addressLine2,
+        customer.city,
+        customer.state,
+        customer.postalCode,
+        customer.country,
+      ]
+        .filter(Boolean)
+        .join(', ')
+
+      const issueDate = DateTime.now()
+      const dueDate = issueDate.plus({ days: 30 })
+
+      const invoice = await Invoice.create(
+        {
+          tenantId: tenant.id,
+          userId: user.id,
+          customerId: customer.id,
+          projectId: data.projectIds[0],
+          invoiceNumber,
+          status: 'draft',
+          issueDate,
+          dueDate,
+          subtotal: result.subtotal,
+          taxRate: data.taxRate || 0,
+          taxAmount: result.taxAmount,
+          discountAmount: result.discountAmount,
+          totalAmount: result.total,
+          amountPaid: 0,
+          notes: data.notes || null,
+          paymentTerms: data.paymentTerms || null,
+          currency: 'USD',
+          clientName: customer.name,
+          clientEmail: customer.email,
+          clientAddress: clientAddress || null,
+          sentTo: customer.email,
+        },
+        { client: trx }
+      )
+
+      for (const projectId of data.projectIds) {
+        await InvoiceProject.create(
+          {
+            invoiceId: invoice.id,
+            projectId,
+          },
+          { client: trx }
+        )
+      }
+
+      for (const lineItem of result.lineItems) {
+        const invoiceItem = await InvoiceItem.create(
+          {
+            invoiceId: invoice.id,
+            projectMemberId: lineItem.projectMemberId,
+            description: lineItem.description,
+            quantity: lineItem.quantity,
+            unit: lineItem.unit,
+            unitPrice: lineItem.unitPrice,
+            amount: lineItem.amount,
+          },
+          { client: trx }
+        )
+
+        for (const timeEntryId of lineItem.timeEntryIds) {
+          await trx.table('invoice_item_time_entries').insert({
+            invoice_item_id: invoiceItem.id,
+            time_entry_id: timeEntryId,
+            created_at: DateTime.now().toSQL(),
+          })
+        }
+      }
+
+      await trx.commit()
+
+      await invoice.load('user')
+      await invoice.load('customer')
+      await invoice.load('projects')
+      await invoice.load('items', (query) => {
+        query.preload('projectMember', (memberQuery) => {
+          memberQuery.preload('user')
+        })
+      })
+
+      return response.created({
+        data: invoice,
+        warnings: result.warnings,
+      })
+    } catch (error) {
+      await trx.rollback()
+      throw error
+    }
+  }
+
+  /**
    * Generate invoice from time entries
    */
   async generateFromTimeEntries({ tenant, request, response }: HttpContext) {
@@ -551,15 +1032,22 @@ export default class InvoicesController {
   }
 
   /**
-   * Send invoice via email
+   * Send invoice via email with CC support and custom content
    */
-  async send({ tenant, params, request, response }: HttpContext) {
+  async send({ tenant, userRole, params, request, response }: HttpContext) {
+    // Permission check: Only Admin/Owner can send invoices
+    if (!userRole.canSendInvoices()) {
+      return response.forbidden({
+        error: 'Insufficient permissions to send invoices',
+      })
+    }
+
     const invoice = await Invoice.query()
       .where('id', params.id)
       .where('tenant_id', tenant.id)
       .firstOrFail()
 
-    const recipientEmail = request.input('email')
+    const data = await request.validateUsing(sendInvoiceValidator)
 
     try {
       // Generate PDF if not already generated
@@ -567,8 +1055,14 @@ export default class InvoicesController {
         await pdfService.generateInvoicePDF(invoice)
       }
 
-      // Send email
-      await emailService.sendInvoiceEmail(invoice, recipientEmail)
+      // Send email with new options pattern
+      await emailService.sendInvoiceEmail({
+        invoice,
+        to: data.email,
+        cc: data.ccEmails,
+        subject: data.subject,
+        message: data.message,
+      })
 
       // Update status to sent if it was draft
       if (invoice.status === 'draft') {
@@ -594,25 +1088,34 @@ export default class InvoicesController {
   /**
    * Generate PDF for invoice
    */
-  async generatePdf({ tenant, params, response }: HttpContext) {
+  async generatePdf({ tenant, userRole, params, response }: HttpContext) {
+    // Permission check: Only tenant owners can export PDFs
+    if (!userRole.isOwner()) {
+      return response.forbidden({
+        error: 'Only tenant owners can export invoices',
+      })
+    }
+
     const invoice = await Invoice.query()
       .where('id', params.id)
       .where('tenant_id', tenant.id)
       .firstOrFail()
 
     try {
-      const pdfUrl = await pdfService.generateInvoicePDF(invoice)
+      const pdfBuffer = await pdfService.generateInvoicePDF(invoice)
 
-      await invoice.refresh()
-      await invoice.load('user')
+      // Set response headers for PDF download
+      response.header('Content-Type', 'application/pdf')
+      response.header(
+        'Content-Disposition',
+        `attachment; filename="invoice-${invoice.invoiceNumber}.pdf"`
+      )
+      response.header('Content-Length', pdfBuffer.length.toString())
 
-      return response.ok({
-        data: invoice,
-        pdfUrl,
-        message: 'PDF generated successfully',
-      })
+      // Stream PDF buffer directly to response
+      return response.send(pdfBuffer)
     } catch (error) {
-      return response.badRequest({
+      return response.internalServerError({
         error: 'Failed to generate PDF',
         details: error.message,
       })

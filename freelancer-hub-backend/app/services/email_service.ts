@@ -19,12 +19,21 @@ import env from '#start/env'
 
 export interface EmailOptions {
   to: string
+  cc?: string[]
   subject: string
   html: string
   attachments?: Array<{
     filename: string
     path: string
   }>
+}
+
+export interface SendInvoiceEmailOptions {
+  invoice: Invoice
+  to: string
+  cc?: string[]
+  subject?: string
+  message?: string
 }
 
 export class EmailService {
@@ -44,6 +53,9 @@ export class EmailService {
     console.log('📧 Email would be sent:')
     console.log(`From: ${this.fromName} <${this.fromEmail}>`)
     console.log(`To: ${options.to}`)
+    if (options.cc && options.cc.length > 0) {
+      console.log(`CC: ${options.cc.join(', ')}`)
+    }
     console.log(`Subject: ${options.subject}`)
     console.log('---')
 
@@ -52,22 +64,48 @@ export class EmailService {
   }
 
   /**
-   * Send invoice email
+   * Validate email address format
    */
-  async sendInvoiceEmail(invoice: Invoice, recipientEmail?: string): Promise<boolean> {
+  private isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailRegex.test(email) && !email.includes('\n') && !email.includes('\r')
+  }
+
+  /**
+   * Send invoice email with CC support and custom content
+   */
+  async sendInvoiceEmail(options: SendInvoiceEmailOptions): Promise<boolean> {
+    const { invoice, to, cc = [], subject, message } = options
+
     await invoice.load('user', 'tenant')
 
-    const to = recipientEmail || invoice.clientEmail || invoice.user?.email
-    if (!to) {
-      throw new Error('No recipient email address found')
+    // Validate primary email
+    if (!this.isValidEmail(to)) {
+      throw new Error(`Invalid email address: ${to}`)
     }
 
-    const subject = `Invoice ${invoice.invoiceNumber} from ${invoice.tenant?.name || 'Freelancer Hub'}`
-    const html = this.generateInvoiceEmailHTML(invoice)
+    // Validate CC emails
+    if (cc.length > 10) {
+      throw new Error('Maximum 10 CC recipients allowed')
+    }
+
+    for (const email of cc) {
+      if (!this.isValidEmail(email)) {
+        throw new Error(`Invalid CC email address: ${email}`)
+      }
+    }
+
+    // Use custom subject or default
+    const defaultSubject = `Invoice ${invoice.invoiceNumber} from ${invoice.tenant?.name || 'Freelancer Hub'}`
+    const emailSubject = subject || defaultSubject
+
+    // Generate HTML with custom message if provided
+    const html = this.generateInvoiceEmailHTML(invoice, message)
 
     const sent = await this.sendEmail({
       to,
-      subject,
+      cc: cc.length > 0 ? cc : undefined,
+      subject: emailSubject,
       html,
       attachments: invoice.pdfUrl
         ? [
@@ -175,7 +213,7 @@ export class EmailService {
   /**
    * Generate invoice email HTML
    */
-  private generateInvoiceEmailHTML(invoice: Invoice): string {
+  private generateInvoiceEmailHTML(invoice: Invoice, customMessage?: string): string {
     return `
 <!DOCTYPE html>
 <html>
@@ -186,6 +224,7 @@ export class EmailService {
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
     .header { background-color: #1890ff; color: white; padding: 20px; text-align: center; }
     .content { padding: 20px; background-color: #f5f5f5; }
+    .custom-message { background-color: #e6f7ff; border-left: 4px solid #1890ff; padding: 15px; margin: 20px 0; border-radius: 5px; }
     .invoice-details { background-color: white; padding: 20px; margin: 20px 0; border-radius: 5px; }
     .button { display: inline-block; padding: 12px 24px; background-color: #1890ff; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
     .footer { text-align: center; padding: 20px; color: #888; font-size: 12px; }
@@ -196,12 +235,12 @@ export class EmailService {
     <div class="header">
       <h1>Invoice from ${invoice.tenant?.name || 'Freelancer Hub'}</h1>
     </div>
-    
+
     <div class="content">
       <p>Hello ${invoice.clientName || invoice.user?.fullName || 'there'},</p>
-      
-      <p>Please find attached your invoice for services rendered.</p>
-      
+
+      ${customMessage ? `<div class="custom-message">${customMessage}</div>` : '<p>Please find attached your invoice for services rendered.</p>'}
+
       <div class="invoice-details">
         <h2>Invoice Details</h2>
         <p><strong>Invoice Number:</strong> ${invoice.invoiceNumber}</p>
@@ -210,14 +249,14 @@ export class EmailService {
         <p><strong>Amount Due:</strong> $${(invoice.totalAmount - invoice.amountPaid).toFixed(2)} ${invoice.currency}</p>
         <p><strong>Payment Terms:</strong> ${invoice.paymentTerms || 'Net 30'}</p>
       </div>
-      
+
       ${invoice.pdfUrl ? '<p>The invoice is attached as a PDF to this email.</p>' : ''}
-      
+
       <p>If you have any questions about this invoice, please don't hesitate to contact us.</p>
-      
+
       <p>Thank you for your business!</p>
     </div>
-    
+
     <div class="footer">
       <p>${invoice.tenant?.name || 'Freelancer Hub'}</p>
       <p>This is an automated email. Please do not reply to this message.</p>

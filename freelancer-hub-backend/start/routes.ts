@@ -154,8 +154,10 @@ router
         // Invoices
         router.get('/invoices', [InvoicesController, 'index'])
         router.post('/invoices', [InvoicesController, 'store'])
-        router.get('/invoices/:id', [InvoicesController, 'show'])
+        router.post('/invoices/generate-from-time', [InvoicesController, 'generate'])
         router.post('/invoices/generate', [InvoicesController, 'generateFromTimeEntries'])
+        router.get('/invoices/:id', [InvoicesController, 'show'])
+        router.put('/invoices/:id', [InvoicesController, 'update'])
         router.patch('/invoices/:id/status', [InvoicesController, 'updateStatus'])
         router.post('/invoices/:id/send', [InvoicesController, 'send'])
         router.post('/invoices/:id/pdf', [InvoicesController, 'generatePdf'])

@@ -62,6 +62,8 @@ import {
   PaymentCreate,
   InvoiceManagement,
   InvoiceCreate,
+  InvoiceEdit,
+  InvoiceShow,
   FinancialDashboard,
 } from "./pages/financials";
 import { WiseAccountSetup, PositionList, PaymentInfoSettings } from "./pages/settings";
@@ -265,6 +267,14 @@ function App() {
                         <Route
                           path="invoices/create"
                           element={<InvoiceCreate />}
+                        />
+                        <Route
+                          path="invoices/:id/edit"
+                          element={<InvoiceEdit />}
+                        />
+                        <Route
+                          path="invoices/:id/show"
+                          element={<InvoiceShow />}
                         />
                       </Route>
                       <Route path="settings">

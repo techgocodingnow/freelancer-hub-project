@@ -49,7 +49,7 @@ export default class extends BaseSchema {
 
       // Invitation status
       table
-        .enum('status', ['pending', 'accepted', 'expired', 'cancelled'])
+        .enum('status', ['pending', 'accepted', 'expired', 'cancelled', 'rejected'])
         .defaultTo('pending')
         .notNullable()
 
@@ -87,4 +87,3 @@ export default class extends BaseSchema {
     this.schema.dropTable(this.tableName)
   }
 }
-

@@ -66,5 +66,22 @@ export default class Role extends BaseModel {
 
     return Array.isArray(resourcePermissions) && resourcePermissions.includes(action)
   }
+
+  // Invoice-specific permission helpers
+  canViewAllInvoices(): boolean {
+    return this.isAdmin() || this.isOwner() || this.isViewer()
+  }
+
+  canManageInvoices(): boolean {
+    return this.isAdmin() || this.isOwner()
+  }
+
+  canExportInvoices(): boolean {
+    return this.isAdmin() || this.isOwner()
+  }
+
+  canSendInvoices(): boolean {
+    return this.isAdmin() || this.isOwner()
+  }
 }
 

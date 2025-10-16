@@ -1,3 +1,379 @@
+<!-- OPENSPEC:START -->
+
+# OpenSpec Instructions
+
+These instructions are for AI assistants working in this project.
+
+Always open `@/openspec/AGENTS.md` when the request:
+
+- Mentions planning or proposals (words like proposal, spec, change, plan)
+- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
+- Sounds ambiguous and you need the authoritative spec before coding
+
+Use `@/openspec/AGENTS.md` to learn:
+
+- How to create and apply change proposals
+- Spec format and conventions
+- Project structure and guidelines
+
+Keep this managed block so 'openspec update' can refresh the instructions.
+
+<!-- OPENSPEC:END -->
+
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+---
+
+# Freelancer Hub Project
+
+## Project Overview
+
+Freelancer Hub is a full-stack time tracking and project management application built as a monorepo with:
+
+- **Backend**: AdonisJS v6 REST API with PostgreSQL
+- **Frontend**: React 19 SPA with Refine v5 + Ant Design v5
+- **Real-time Sync**: Electric SQL for local-first data synchronization
+
+## Architecture
+
+### Monorepo Structure
+
+```
+freelancer-hub-project/
+├── freelancer-hub-backend/     # AdonisJS backend API
+│   ├── app/
+│   │   ├── controllers/        # HTTP request handlers
+│   │   ├── models/            # Lucid ORM models
+│   │   ├── validators/        # VineJS request validators
+│   │   ├── services/          # Business logic layer
+│   │   └── middleware/        # HTTP middleware
+│   ├── database/
+│   │   ├── migrations/        # Database migrations
+│   │   └── seeders/           # Database seeders
+│   ├── tests/
+│   │   ├── unit/             # Unit tests
+│   │   └── functional/       # API integration tests
+│   ├── config/               # Application configuration
+│   └── start/                # Bootstrap files (routes, kernel, env)
+│
+├── freelancer-hub-dashboard/   # React frontend
+│   └── src/
+│       ├── pages/            # Page components (organized by feature)
+│       ├── components/       # Reusable UI components
+│       ├── stores/           # Zustand state management
+│       ├── services/         # API client & services
+│       ├── hooks/            # Custom React hooks
+│       ├── providers/        # Data providers for Refine
+│       ├── contexts/         # React contexts (tenant, color-mode)
+│       └── utils/            # Utility functions
+│
+└── start-electric.sh          # Docker script to run Electric SQL
+```
+
+### Multi-Tenancy Architecture
+
+The application uses a **slug-based tenant system** where:
+
+- Each tenant has a unique slug (e.g., `/tenants/acme-corp`)
+- Users belong to tenants via the `Tenant` model
+- All routes are scoped under `/tenants/:slug`
+- The `TenantProvider` context manages current tenant state
+- Backend API uses tenant-aware controllers to filter data by tenant
+
+**Key tenant files:**
+
+- Frontend: `src/contexts/tenant/index.tsx`
+- Frontend: `src/components/TenantAwareNavigate.tsx`
+- Frontend: `src/components/RefineWithTenant.tsx`
+
+### Database & Data Sync
+
+**Primary Database**: PostgreSQL with Lucid ORM (AdonisJS)
+
+- Migrations in `freelancer-hub-backend/database/migrations/`
+- Models in `freelancer-hub-backend/app/models/`
+
+**Real-time Sync**: Electric SQL for local-first architecture
+
+- Frontend maintains local state synced with backend
+- Electric SQL runs as Docker container (port 3000)
+- Start with: `./start-electric.sh`
+- Database URL: `postgresql://admin:admin@host.docker.internal:5432/freelancerhub`
+
+### Key Domain Models
+
+**Core entities:**
+
+- `User` - Authentication & user accounts
+- `Tenant` - Multi-tenant organizations
+- `Project` - Client projects
+- `ProjectMember` - Team members assigned to projects (with hourly rates)
+- `Position` - Job roles/positions for team members
+- `Task` - Project tasks
+- `TimeEntry` - Time tracking records
+- `Timesheet` - Grouped time entries for approval
+- `Customer` - Client information
+- `Invoice` / `InvoiceItem` / `InvoiceProject` - Invoicing
+- `Payment` / `PayrollBatch` - Payment processing
+- `Notification` / `NotificationPreference` - In-app notifications
+- `Invitation` - Team invitations
+
+## Common Development Tasks
+
+### Backend (AdonisJS)
+
+**Running the backend:**
+
+```bash
+cd freelancer-hub-backend
+npm run dev              # Start dev server with HMR
+npm run build            # Build for production
+npm start                # Start production server
+```
+
+**Testing:**
+
+```bash
+npm test                 # Run all tests (unit + functional)
+npm run test -- --files tests/unit/**/*.spec.ts    # Run unit tests only
+npm run test -- --files tests/functional/**/*.spec.ts  # Run functional tests
+```
+
+**Database:**
+
+```bash
+npm run migration:run         # Run pending migrations
+npm run migration:fresh       # Drop all tables and re-run migrations + seeds
+npm run migration:refresh     # Rollback all and re-run + seeds
+npm run migration:rollback    # Rollback last batch
+node ace make:migration create_table_name  # Create new migration
+```
+
+**Code quality:**
+
+```bash
+npm run lint             # Run ESLint
+npm run format           # Run Prettier
+npm run typecheck        # Run TypeScript compiler check
+```
+
+**Path aliases (in imports):**
+
+- `#controllers/*` → `./app/controllers/*.js`
+- `#models/*` → `./app/models/*.js`
+- `#services/*` → `./app/services/*.js`
+- `#validators/*` → `./app/validators/*.js`
+- `#middleware/*` → `./app/middleware/*.js`
+- `#config/*` → `./config/*.js`
+- `#start/*` → `./start/*.js`
+- `#tests/*` → `./tests/*.js`
+
+### Frontend (React + Refine)
+
+**Running the frontend:**
+
+```bash
+cd freelancer-hub-dashboard
+npm run dev              # Start Vite dev server
+npm run build            # Build for production (runs typecheck first)
+npm start                # Serve production build
+```
+
+**Code structure:**
+
+- Pages use **Refine hooks** (`useList`, `useShow`, `useCreate`, `useUpdate`, `useDelete`)
+- UI components from **Ant Design v5**
+- State management via **Zustand** (stores in `src/stores/`)
+- Routing via **React Router v7** with tenant-aware navigation
+
+**Key patterns:**
+
+- All pages are tenant-scoped under `/tenants/:slug`
+- Use `useTenant()` hook to access current tenant context
+- Data providers are tenant-aware (automatic tenant filtering)
+- Auth via JWT tokens with `authProvider.ts`
+
+### Electric SQL Setup
+
+**Start Electric SQL sync server:**
+
+```bash
+./start-electric.sh
+```
+
+This runs Electric in Docker on port 3000, connected to PostgreSQL.
+
+**Environment variables needed:**
+
+```env
+# Backend (.env)
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_USER=admin
+DB_PASSWORD=admin
+DB_DATABASE=freelancerhub
+
+# Frontend (.env)
+VITE_API_BASE_URL=http://localhost:3333
+ELECTRIC_URL=http://localhost:3000/v1/shape
+```
+
+## Testing Strategy
+
+### Backend Testing with Japa
+
+**Test organization:**
+
+- `tests/unit/**/*.spec.ts` - Unit tests (2s timeout)
+- `tests/functional/**/*.spec.ts` - API integration tests (30s timeout)
+
+**Test setup:**
+
+- Uses `@japa/runner` with plugins: `assert`, `apiClient`, `pluginAdonisJS`
+- Bootstrap file: `tests/bootstrap.ts`
+- HTTP server auto-started for functional tests
+
+**Run a single test file:**
+
+```bash
+npm test -- --files tests/functional/projects.spec.ts
+```
+
+### Frontend Testing
+
+Currently minimal - future instances should add:
+
+- React Testing Library for components
+- Vitest for unit tests
+- MSW for API mocking
+
+## Important Patterns & Conventions
+
+### Validation (Backend)
+
+Use **VineJS** for request validation:
+
+```typescript
+// app/validators/project_validator.ts
+import vine from "@vinejs/vine";
+
+export const createProjectValidator = vine.compile(
+  vine.object({
+    name: vine.string().trim().minLength(3),
+    customer_id: vine.number().positive(),
+  })
+);
+```
+
+### Error Handling (Backend)
+
+Use custom exceptions from `app/exceptions/`:
+
+```typescript
+throw new NotFoundException("Project not found");
+```
+
+### Authorization (Backend)
+
+- Session-based auth with `@adonisjs/auth`
+- Auth middleware in `app/middleware/auth.ts`
+- Tenant scoping enforced in controllers
+
+### State Management (Frontend)
+
+**Zustand stores** for app-level state:
+
+- `filterStore.ts` - Filter preferences across views
+- `viewStore.ts` - View mode preferences (list/kanban/calendar)
+- `favoriteStore.ts` - Favorited items
+- `uiStore.ts` - UI state (sidebar, modals)
+
+### Refine Integration (Frontend)
+
+All CRUD operations use Refine's data hooks:
+
+```typescript
+import { useList, useCreate, useUpdate } from "@refinedev/core";
+
+// In component
+const { data, isLoading } = useList({ resource: "projects" });
+const { mutate: createProject } = useCreate();
+```
+
+## Known Gotchas
+
+### Backend
+
+1. **Import extensions required**: AdonisJS uses ESM, so imports must include `.js` extension:
+
+   ```typescript
+   import User from "#models/user.js"; // Note the .js
+   ```
+
+2. **Path aliases**: Use `#` prefixed aliases instead of relative imports:
+
+   ```typescript
+   import ProjectService from "#services/project_service.js";
+   ```
+
+3. **Migrations**: Natural sort is enabled - name migrations with timestamps carefully
+
+### Frontend
+
+1. **Tenant context**: Always use `useTenant()` within tenant-scoped routes, will be undefined on auth pages
+
+2. **Ant Design v5 + React 19**: Uses compatibility patch `@ant-design/v5-patch-for-react-19`
+
+3. **Refine resources**: Resources must match backend API endpoints exactly
+
+4. **TypeScript strict mode**: Frontend has `strict: true` but `noUnusedLocals: false` (different from backend)
+
+### Electric SQL
+
+1. **Docker requirement**: Electric SQL must be running for real-time sync features
+2. **Port conflicts**: Ensure port 3000 is available for Electric
+3. **Database credentials**: Must match between backend config and Electric env vars
+
+## Environment Setup
+
+### Required Tools
+
+- Node.js (v20+)
+- PostgreSQL (v14+)
+- Docker (for Electric SQL)
+
+### Initial Setup
+
+1. **Backend:**
+
+   ```bash
+   cd freelancer-hub-backend
+   npm install
+   cp .env.example .env
+   # Update .env with your database credentials
+   npm run migration:fresh  # Sets up database
+   npm run dev
+   ```
+
+2. **Frontend:**
+
+   ```bash
+   cd freelancer-hub-dashboard
+   npm install
+   cp .env.example .env
+   # Update VITE_API_BASE_URL if needed
+   npm run dev
+   ```
+
+3. **Electric SQL:**
+   ```bash
+   ./start-electric.sh
+   ```
+
+---
+
 # Development Guidelines for Claude
 
 ## Core Philosophy
@@ -105,35 +481,6 @@ Key principles:
 - Compose factories for complex objects
 - Consider using a test data builder pattern for very complex objects
 
-## TypeScript Guidelines
-
-### Strict Mode Requirements
-
-```json
-// tsconfig.json
-{
-  "compilerOptions": {
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "strictPropertyInitialization": true,
-    "noImplicitThis": true,
-    "alwaysStrict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
-  }
-}
-```
-
-- **No `any`** - ever. Use `unknown` if type is truly unknown
-- **No type assertions** (`as SomeType`) unless absolutely necessary with clear justification
-- **No `@ts-ignore`** or `@ts-expect-error` without explicit explanation
-- These rules apply to test code as well as production code
-
 ### Type Definitions
 
 - **Prefer `type` over `interface`** in all cases
@@ -150,67 +497,6 @@ type PaymentAmount = number & { readonly brand: unique symbol };
 // Avoid
 type UserId = string;
 type PaymentAmount = number;
-```
-
-## Code Style
-
-### Functional Programming
-
-I follow a "functional light" approach:
-
-- **No data mutation** - work with immutable data structures
-- **Pure functions** wherever possible
-- **Composition** as the primary mechanism for code reuse
-- Avoid heavy FP abstractions (no need for complex monads or pipe/compose patterns) unless there is a clear advantage to using them
-- Use array methods (`map`, `filter`, `reduce`) over imperative loops
-
-#### Examples of Functional Patterns
-
-```typescript
-// Good - Pure function with immutable updates
-const applyDiscount = (order: Order, discountPercent: number): Order => {
-  return {
-    ...order,
-    items: order.items.map((item) => ({
-      ...item,
-      price: item.price * (1 - discountPercent / 100),
-    })),
-    totalPrice: order.items.reduce(
-      (sum, item) => sum + item.price * (1 - discountPercent / 100),
-      0
-    ),
-  };
-};
-
-// Good - Composition over complex logic
-const processOrder = (order: Order): ProcessedOrder => {
-  return pipe(
-    order,
-    validateOrder,
-    applyPromotions,
-    calculateTax,
-    assignWarehouse
-  );
-};
-
-// When heavy FP abstractions ARE appropriate:
-// - Complex async flows that benefit from Task/IO types
-// - Error handling chains that benefit from Result/Either types
-// Example with Result type for complex error handling:
-type Result<T, E = Error> =
-  | { success: true; data: T }
-  | { success: false; error: E };
-
-const chainPaymentOperations = (
-  payment: Payment
-): Result<Receipt, PaymentError> => {
-  return pipe(
-    validatePayment(payment),
-    chain(authorizePayment),
-    chain(capturePayment),
-    map(generateReceipt)
-  );
-};
 ```
 
 ### Code Structure
@@ -1210,6 +1496,248 @@ const processOrder = (order: Order) => {
   const finalOrder = applyDiscounts(pricedOrder);
   return submitOrder(finalOrder);
 };
+```
+
+## Implementation Patterns Discovered
+
+### Invoice Generation from Time Entries
+
+When implementing the invoice generation feature, several important patterns and gotchas were discovered:
+
+**1. Role-based authorization in controllers:**
+
+```typescript
+// INCORRECT - User model doesn't have a role property
+if (user.role !== 'owner') {
+  return response.forbidden()
+}
+
+// CORRECT - Use userRole from HttpContext
+async generate({ userRole, ... }: HttpContext) {
+  if (!userRole.isOwner()) {
+    return response.forbidden({
+      error: 'Only tenant owners can generate invoices',
+    })
+  }
+}
+```
+
+Roles are tenant-specific and accessed via the `userRole` property from HttpContext, not directly on the User model.
+
+**2. DateTime formatting for database queries:**
+
+```typescript
+// INCORRECT - toSQLDate() doesn't exist
+.where('time_entries.date', '>=', startDate.toSQLDate())
+
+// CORRECT - Use toFormat() with pattern
+.where('time_entries.date', '>=', startDate.toFormat('yyyy-MM-dd'))
+```
+
+Luxon's DateTime uses `.toFormat('yyyy-MM-dd')` for SQL-compatible date strings, not `.toSQLDate()`.
+
+**3. Many-to-many junction tables with pivot timestamps:**
+
+```typescript
+// In model - specify pivot timestamps configuration
+@manyToMany(() => TimeEntry, {
+  pivotTable: 'invoice_item_time_entries',
+  localKey: 'id',
+  pivotForeignKey: 'invoice_item_id',
+  relatedKey: 'id',
+  pivotRelatedForeignKey: 'time_entry_id',
+  pivotTimestamps: {
+    createdAt: 'created_at',
+    updatedAt: false,  // Only track creation, not updates
+  },
+})
+declare timeEntries: ManyToMany<typeof TimeEntry>
+
+// In controller - insert into junction table manually within transaction
+for (const timeEntryId of lineItem.timeEntryIds) {
+  await trx.table('invoice_item_time_entries').insert({
+    invoice_item_id: invoiceItem.id,
+    time_entry_id: timeEntryId,
+    created_at: DateTime.now().toSQL(),
+  })
+}
+```
+
+**4. Transaction pattern for multi-step operations:**
+
+```typescript
+const trx = await db.transaction()
+
+try {
+  // Step 1: Create parent record
+  const invoice = await Invoice.create({ ... }, { client: trx })
+
+  // Step 2: Create related records
+  for (const projectId of data.projectIds) {
+    await InvoiceProject.create({ ... }, { client: trx })
+  }
+
+  // Step 3: Create line items and junction records
+  for (const lineItem of result.lineItems) {
+    const invoiceItem = await InvoiceItem.create({ ... }, { client: trx })
+
+    for (const timeEntryId of lineItem.timeEntryIds) {
+      await trx.table('invoice_item_time_entries').insert({ ... })
+    }
+  }
+
+  await trx.commit()
+} catch (error) {
+  await trx.rollback()
+  throw error
+}
+```
+
+Always use transactions for operations that create multiple related records to ensure data consistency.
+
+**5. Service layer pattern for business logic:**
+
+```typescript
+// Service layer (app/services/invoice_service.ts)
+export class InvoiceService {
+  async generateLineItems(options: GenerateInvoiceOptions): Promise<InvoiceGenerationResult> {
+    // Pure business logic - no HTTP concerns
+    const timeEntries = await this.queryBillableTimeEntries(...)
+    const grouped = this.groupTimeEntriesByProjectAndMember(timeEntries)
+    const lineItems = this.generateLineItemsFromGroups(grouped)
+    return { lineItems, totals, warnings }
+  }
+}
+
+// Controller (app/controllers/invoices.ts)
+async generate({ request, response, tenant, userRole }: HttpContext) {
+  // HTTP concerns - validation, authorization, response formatting
+  const data = await request.validateUsing(generateInvoiceValidator)
+
+  if (!userRole.isOwner()) {
+    return response.forbidden({ error: 'Only owners can generate invoices' })
+  }
+
+  const result = await invoiceService.generateLineItems({
+    customerId: data.customerId,
+    projectIds: data.projectIds,
+    startDate: DateTime.fromJSDate(data.startDate),
+    endDate: DateTime.fromJSDate(data.endDate),
+    tenantId: tenant.id,
+  })
+
+  // Use result to create invoice with transaction...
+}
+```
+
+Separate business logic (services) from HTTP concerns (controllers) for better testability and reusability.
+
+**6. Warnings pattern for non-blocking issues:**
+
+```typescript
+const warnings: string[] = [];
+
+if (!projectMember.hourlyRate || projectMember.hourlyRate <= 0) {
+  warnings.push(
+    `Project member ${user.fullName} on ${project.name} has no hourly rate set. ` +
+      `Their time entries were excluded from this invoice.`
+  );
+  continue;
+}
+
+return {
+  lineItems,
+  subtotal,
+  total,
+  warnings, // Include warnings in response for user visibility
+};
+```
+
+Use warnings array to inform users of skipped data or potential issues without failing the entire operation.
+
+### Invoice Display (View Invoice Feature)
+
+When implementing the invoice show/view feature, the following patterns were discovered:
+
+**1. API Response Data Type Coercion:**
+
+The backend API returns numeric fields (amounts, prices) as strings when serialized. Frontend must explicitly convert these to numbers before using numeric operations.
+
+```typescript
+// INCORRECT - Assumes API returns numbers
+const balanceDue = invoice.totalAmount - invoice.amountPaid; // Runtime error if strings
+
+// CORRECT - Convert to numbers explicitly
+const subtotal = Number(invoice.subtotal);
+const taxAmount = Number(invoice.taxAmount);
+const discountAmount = Number(invoice.discountAmount);
+const totalAmount = Number(invoice.totalAmount);
+const amountPaid = Number(invoice.amountPaid);
+const balanceDue = totalAmount - amountPaid;
+```
+
+**2. Table Column Rendering with Type Safety:**
+
+When rendering numeric values in Ant Design tables, always wrap in `Number()` to handle both string and number types:
+
+```typescript
+{
+  title: "Amount",
+  dataIndex: "amount",
+  key: "amount",
+  render: (amount: number) => (
+    <Text strong>${Number(amount).toFixed(2)}</Text>
+  ),
+}
+```
+
+**3. Print-Friendly Styling:**
+
+Use CSS media queries with `.no-print` class for UI elements that shouldn't appear in printed versions:
+
+```typescript
+// In component
+<div className="no-print">
+  <Button>Back</Button>
+  <Button>Edit</Button>
+</div>
+
+// In styles
+<style>
+  {`
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+    }
+  `}
+</style>
+```
+
+**4. Refine useShow Hook Pattern:**
+
+For detail/show pages, use Refine's `useShow` hook for consistent data fetching:
+
+```typescript
+const { query } = useShow({
+  resource: "invoices",
+  id, // from route params
+});
+
+const { data, isLoading, refetch } = query;
+const invoice = data?.data;
+```
+
+**5. Route Parameter Type Handling:**
+
+When passing IDs from Refine hooks to components, type coercion may be needed:
+
+```typescript
+// Invoice ID from useShow might be BaseKey (string | number)
+<SendInvoiceModal
+  invoiceId={invoice.id as number}  // Explicit cast if needed
+  // ... other props
+/>
 ```
 
 ## Resources and References

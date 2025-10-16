@@ -97,6 +97,7 @@ const ENDPOINTS = {
     update: "/invoices/:invoiceId",
     delete: "/invoices/:invoiceId",
     generate: "/invoices/generate",
+    generateFromTime: "/invoices/generate-from-time",
     updateStatus: "/invoices/:invoiceId/status",
     send: "/invoices/:invoiceId/send",
     generatePdf: "/invoices/:invoiceId/pdf",

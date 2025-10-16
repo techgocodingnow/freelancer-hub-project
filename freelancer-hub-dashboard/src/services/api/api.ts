@@ -575,13 +575,45 @@ class Api {
     dueDate?: string;
     notes?: string;
     toEmail?: string;
-    items: Array<{
+    items?: Array<{
       description: string;
       quantity: number;
       unitPrice: number;
     }>;
   }) {
     return this._privateInstance.post(ENDPOINTS.invoices.create, data);
+  }
+
+  updateInvoice(
+    id: string,
+    data: {
+      customerId?: number;
+      projectId?: number; // Backward compatibility
+      duration?: "1week" | "2weeks" | "1month" | "3months" | "6months" | "1year";
+      startDate?: string;
+      endDate?: string;
+      projectIds?: Array<{
+        // New format for multiple projects
+        projectId: number;
+      }>;
+      taxRate?: number;
+      taxAmount?: number;
+      discountRate?: number;
+      discountAmount?: number;
+      issueDate?: string;
+      dueDate?: string;
+      notes?: string;
+      items?: Array<{
+        description: string;
+        quantity: number;
+        unitPrice: number;
+      }>;
+    }
+  ) {
+    return this._privateInstance.put(
+      ENDPOINTS.invoices.one.replace(":invoiceId", id),
+      data
+    );
   }
 
   getProjectTimeSummary(
@@ -595,6 +627,19 @@ class Api {
 
   generateInvoiceFromTimeEntries(data: any) {
     return this._privateInstance.post(ENDPOINTS.invoices.generate, data);
+  }
+
+  generateInvoiceFromTime(data: {
+    customerId: number;
+    projectIds: number[];
+    startDate: string;
+    endDate: string;
+    taxRate?: number;
+    discountAmount?: number;
+    notes?: string;
+    paymentTerms?: string;
+  }) {
+    return this._privateInstance.post(ENDPOINTS.invoices.generateFromTime, data);
   }
 
   updateInvoiceStatus(id: number, status: string) {

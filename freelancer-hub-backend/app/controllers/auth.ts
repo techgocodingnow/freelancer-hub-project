@@ -60,14 +60,12 @@ export default class AuthController {
 
     try {
       let tenant: Tenant
-      let isNewTenant = false
       let roleId: number
 
       // Scenario 1: Registration via invitation
       if (invitation) {
         tenant = invitation.tenant
         roleId = invitation.roleId
-        isNewTenant = false
       }
       // Scenario 2: User joins existing tenant
       else if (data.tenantId) {
@@ -101,7 +99,6 @@ export default class AuthController {
           },
           { client: trx }
         )
-        isNewTenant = true
         const role = await Role.query().where('name', 'owner').firstOrFail()
         roleId = role.id
       } else {
