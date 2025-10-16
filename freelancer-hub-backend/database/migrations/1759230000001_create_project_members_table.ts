@@ -24,6 +24,17 @@ export default class extends BaseSchema {
         .inTable('users')
         .onDelete('CASCADE')
 
+      // Add new position_id foreign key
+      table
+        .integer('position_id')
+        .unsigned()
+        .nullable()
+        .references('id')
+        .inTable('positions')
+        .onDelete('SET NULL')
+
+      table.decimal('hourly_rate', 10, 2).nullable().after('role')
+
       // Member fields
       table.enum('role', ['owner', 'admin', 'member', 'viewer']).defaultTo('member').notNullable()
       table.timestamp('joined_at').notNullable()

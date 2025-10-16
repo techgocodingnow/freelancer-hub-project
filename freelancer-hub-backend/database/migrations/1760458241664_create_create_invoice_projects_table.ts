@@ -23,8 +23,6 @@ export default class extends BaseSchema {
         .inTable('projects')
         .onDelete('RESTRICT')
 
-      table.decimal('hourly_rate', 10, 2).nullable()
-
       table.timestamp('created_at')
       table.timestamp('updated_at')
 

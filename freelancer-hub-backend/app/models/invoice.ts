@@ -123,7 +123,6 @@ export default class Invoice extends BaseModel {
     pivotTable: 'invoice_projects',
     pivotForeignKey: 'invoice_id',
     pivotRelatedForeignKey: 'project_id',
-    pivotColumns: ['hourly_rate'],
   })
   declare projects: ManyToMany<typeof Project>
 

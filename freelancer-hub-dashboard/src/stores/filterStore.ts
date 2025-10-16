@@ -90,19 +90,19 @@ const toRefineFilters = (filterCriteria: FilterCriteria): CrudFilters => {
     });
   }
 
-  if (filterCriteria.estimatedTimeMin !== undefined) {
+  if (filterCriteria.estimatedHoursMin !== undefined) {
     filters.push({
       field: "estimatedTime",
       operator: "gte" as const,
-      value: filterCriteria.estimatedTimeMin,
+      value: filterCriteria.estimatedHoursMin,
     });
   }
 
-  if (filterCriteria.estimatedTimeMax !== undefined) {
+  if (filterCriteria.estimatedHoursMax !== undefined) {
     filters.push({
       field: "estimatedTime",
       operator: "lte" as const,
-      value: filterCriteria.estimatedTimeMax,
+      value: filterCriteria.estimatedHoursMax,
     });
   }
 

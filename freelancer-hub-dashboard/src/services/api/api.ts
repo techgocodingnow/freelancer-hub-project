@@ -158,7 +158,11 @@ class Api {
     );
   }
 
-  updateProjectMember(projectId: number, memberId: number, data: UpdateProjectMemberPayload) {
+  updateProjectMember(
+    projectId: number,
+    memberId: number,
+    data: UpdateProjectMemberPayload
+  ) {
     return this._privateInstance.patch(
       `/projects/${projectId}/members/${memberId}`,
       data
@@ -168,7 +172,11 @@ class Api {
   /**
    * @deprecated Use updateProjectMember instead
    */
-  updateProjectMemberRate(projectId: number, memberId: number, data: { hourlyRate: number | null }) {
+  updateProjectMemberRate(
+    projectId: number,
+    memberId: number,
+    data: { hourlyRate: number | null }
+  ) {
     return this._privateInstance.patch(
       `/projects/${projectId}/members/${memberId}`,
       data
@@ -257,9 +265,10 @@ class Api {
 
   // Tenant Payment Info
   getTenantPaymentInfo() {
-    return this._privateInstance.get<null, AxiosResponse<{ data: TenantPaymentInfo }>>(
-      ENDPOINTS.tenants.paymentInfo
-    );
+    return this._privateInstance.get<
+      null,
+      AxiosResponse<{ data: TenantPaymentInfo }>
+    >(ENDPOINTS.tenants.paymentInfo);
   }
 
   updateTenantPaymentInfo(data: UpdateTenantPaymentInfoPayload) {
@@ -551,12 +560,20 @@ class Api {
   createInvoice(data: {
     customerId?: number;
     projectId?: number; // Backward compatibility
-    duration: "1week" | "2weeks" | "1month";
-    hourlyRate?: number; // Backward compatibility
-    projectIds?: Array<{  // New format for multiple projects
+    duration?: "1week" | "2weeks" | "1month" | "3months" | "6months" | "1year";
+    startDate?: string;
+    endDate?: string;
+    projectIds?: Array<{
+      // New format for multiple projects
       projectId: number;
-      hourlyRate: number;
     }>;
+    taxRate?: number;
+    taxAmount?: number;
+    discountRate?: number;
+    discountAmount?: number;
+    issueDate?: string;
+    dueDate?: string;
+    notes?: string;
     toEmail?: string;
     items: Array<{
       description: string;
@@ -571,10 +588,9 @@ class Api {
     projectId: number,
     params?: { startDate?: string; endDate?: string }
   ) {
-    return this._privateInstance.get(
-      `/projects/${projectId}/time-summary`,
-      { params }
-    );
+    return this._privateInstance.get(`/projects/${projectId}/time-summary`, {
+      params,
+    });
   }
 
   generateInvoiceFromTimeEntries(data: any) {

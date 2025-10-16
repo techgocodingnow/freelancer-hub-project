@@ -234,7 +234,7 @@ export const InvoiceManagement: React.FC = () => {
       render: (amount: number, record: any) => (
         <div>
           <Text strong style={{ color: tokens.colors.semantic.success }}>
-            ${amount.toFixed(2)}
+            ${amount}
           </Text>
           {record.amountPaid > 0 && (
             <div style={{ marginTop: "4px" }}>
@@ -245,7 +245,7 @@ export const InvoiceManagement: React.FC = () => {
                 strokeColor={tokens.colors.semantic.success}
               />
               <Text type="secondary" style={{ fontSize: "12px" }}>
-                ${record.amountPaid.toFixed(2)} paid
+                ${record.amountPaid} paid
               </Text>
             </div>
           )}
@@ -416,9 +416,10 @@ export const InvoiceManagement: React.FC = () => {
                   }}
                 >
                   $
-                  {filteredInvoices
-                    .reduce((sum: number, inv: any) => sum + inv.totalAmount, 0)
-                    .toFixed(2)}
+                  {filteredInvoices.reduce(
+                    (sum: number, inv: any) => sum + inv.totalAmount,
+                    0
+                  )}
                 </Text>
               </div>
             </div>
@@ -437,9 +438,10 @@ export const InvoiceManagement: React.FC = () => {
                   }}
                 >
                   $
-                  {filteredInvoices
-                    .reduce((sum: number, inv: any) => sum + inv.amountPaid, 0)
-                    .toFixed(2)}
+                  {filteredInvoices.reduce(
+                    (sum: number, inv: any) => sum + inv.amountPaid,
+                    0
+                  )}
                 </Text>
               </div>
             </div>
@@ -458,13 +460,11 @@ export const InvoiceManagement: React.FC = () => {
                   }}
                 >
                   $
-                  {filteredInvoices
-                    .reduce(
-                      (sum: number, inv: any) =>
-                        sum + (inv.totalAmount - inv.amountPaid),
-                      0
-                    )
-                    .toFixed(2)}
+                  {filteredInvoices.reduce(
+                    (sum: number, inv: any) =>
+                      sum + (inv.totalAmount - inv.amountPaid),
+                    0
+                  )}
                 </Text>
               </div>
             </div>

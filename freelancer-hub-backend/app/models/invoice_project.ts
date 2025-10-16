@@ -14,9 +14,6 @@ export default class InvoiceProject extends BaseModel {
   @column({ columnName: 'project_id' })
   declare projectId: number
 
-  @column({ columnName: 'hourly_rate' })
-  declare hourlyRate: number | null
-
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 

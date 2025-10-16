@@ -16,6 +16,14 @@ export default class extends BaseSchema {
         .inTable('tenants')
         .onDelete('CASCADE')
 
+      table
+        .integer('customer_id')
+        .unsigned()
+        .references('id')
+        .inTable('customers')
+        .onDelete('RESTRICT')
+        .nullable()
+
       // Project fields
       table.string('name', 255).notNullable()
       table.text('description').nullable()
@@ -30,6 +38,8 @@ export default class extends BaseSchema {
 
       // Indexes
       table.index('tenant_id')
+      table.index('customer_id')
+      table.index(['tenant_id', 'customer_id'])
       table.index(['tenant_id', 'status'])
       table.index(['tenant_id', 'created_at'])
     })

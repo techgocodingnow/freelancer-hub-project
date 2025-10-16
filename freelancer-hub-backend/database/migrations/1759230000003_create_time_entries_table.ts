@@ -25,6 +25,23 @@ export default class extends BaseSchema {
         .inTable('users')
         .onDelete('CASCADE')
 
+      // Link time entries to timesheets
+      table
+        .integer('timesheet_id')
+        .unsigned()
+        .nullable()
+        .references('id')
+        .inTable('timesheets')
+        .onDelete('SET NULL')
+        .after('user_id')
+
+      // Additional fields for timesheet functionality
+      table.text('notes').nullable().after('billable')
+
+      // Index for timesheet relationship
+      table.index('timesheet_id')
+      table.index(['timesheet_id', 'date'])
+
       // Time entry fields
       table.text('description').nullable()
       table.timestamp('start_time').nullable()

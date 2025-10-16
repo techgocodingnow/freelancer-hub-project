@@ -4,8 +4,11 @@ import vine from '@vinejs/vine'
  * Validator for creating a manual invoice
  * Supports:
  * - Manual invoices: customerId + items
- * - Single project: projectId + hourlyRate (backward compatibility)
- * - Multiple projects: projectIds array with individual rates
+ * - Single project: projectId (backward compatibility)
+ * - Multiple projects: projectIds array
+ * - Custom date ranges or predefined durations
+ * - Flexible tax and discount options
+ * - Invoice metadata (issue date, due date, notes)
  */
 export const createInvoiceValidator = vine.compile(
   vine.object({
@@ -13,19 +16,34 @@ export const createInvoiceValidator = vine.compile(
 
     // Old format (backward compatibility): single project
     projectId: vine.number().positive().optional(),
-    hourlyRate: vine.number().min(0.01).optional(),
 
-    // New format: multiple projects with individual rates
+    // New format: multiple projects
     projectIds: vine
       .array(
         vine.object({
           projectId: vine.number().positive(),
-          hourlyRate: vine.number().min(0.01),
         })
       )
       .optional(),
 
-    duration: vine.enum(['1week', '2weeks', '1month']),
+    // Date range options
+    duration: vine.enum(['1week', '2weeks', '1month', '3months', '6months', '1year']).optional(),
+    startDate: vine.date().optional(),
+    endDate: vine.date().optional(),
+
+    // Tax options (either percentage or fixed amount)
+    taxRate: vine.number().min(0).max(100).optional(),
+    taxAmount: vine.number().min(0).optional(),
+
+    // Discount options (either percentage or fixed amount)
+    discountRate: vine.number().min(0).max(100).optional(),
+    discountAmount: vine.number().min(0).optional(),
+
+    // Invoice metadata
+    issueDate: vine.date().optional(),
+    dueDate: vine.date().optional(),
+    notes: vine.string().trim().optional(),
+
     items: vine
       .array(
         vine.object({
@@ -34,6 +52,6 @@ export const createInvoiceValidator = vine.compile(
           unitPrice: vine.number().min(0.01),
         })
       )
-      .minLength(1),
+      .optional(),
   })
 )

@@ -12,9 +12,11 @@ import {
   Col,
   Divider,
   Table,
-  message,
   Alert,
   Spin,
+  Radio,
+  DatePicker,
+  notification,
 } from "antd";
 import {
   PlusOutlined,
@@ -22,13 +24,13 @@ import {
   SaveOutlined,
   CloseOutlined,
   ProjectOutlined,
-  ClockCircleOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useParams } from "react-router";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { ResponsiveContainer } from "../../components/responsive";
 import { Api } from "../../services/api";
 import dayjs from "dayjs";
+import { getErrorMessage } from "../../utils/error";
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -59,7 +61,6 @@ type ProjectConfig = {
   key: string;
   projectId: number;
   projectName: string;
-  hourlyRate: number;
   timeSummary: TimeSummary | null;
   loading: boolean;
 };
@@ -69,6 +70,7 @@ export const InvoiceCreate: React.FC = () => {
   const navigate = useNavigate();
   const { slug } = useParams();
   const [form] = Form.useForm();
+  const [notificationApi, contextHolder] = notification.useNotification();
 
   // State
   const [isLoading, setIsLoading] = useState(false);
@@ -81,6 +83,19 @@ export const InvoiceCreate: React.FC = () => {
   );
   const [projectConfigs, setProjectConfigs] = useState<ProjectConfig[]>([]);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
+
+  // New state for enhanced features
+  const [dateRangeType, setDateRangeType] = useState<"predefined" | "custom">(
+    "predefined"
+  );
+  const [taxType, setTaxType] = useState<"none" | "percentage" | "fixed">(
+    "none"
+  );
+  const [discountType, setDiscountType] = useState<
+    "none" | "percentage" | "fixed"
+  >("none");
+  const [taxValue, setTaxValue] = useState<number>(0);
+  const [discountValue, setDiscountValue] = useState<number>(0);
 
   // Fetch customers and projects on mount
   useEffect(() => {
@@ -98,9 +113,10 @@ export const InvoiceCreate: React.FC = () => {
     try {
       const response = await Api.getCustomers({ isActive: true });
       setCustomers(response.data.data || []);
-    } catch (error) {
-      console.error("Failed to fetch customers:", error);
-      message.error("Failed to load customers");
+    } catch {
+      notificationApi.error({
+        message: "Failed to load customers",
+      });
     } finally {
       setLoadingCustomers(false);
     }
@@ -111,9 +127,10 @@ export const InvoiceCreate: React.FC = () => {
     try {
       const response = await Api.getProjects();
       setProjects(response.data.data || []);
-    } catch (error) {
-      console.error("Failed to fetch projects:", error);
-      message.error("Failed to load projects");
+    } catch {
+      notificationApi.error({
+        message: "Failed to load projects",
+      });
     } finally {
       setLoadingProjects(false);
     }
@@ -122,17 +139,26 @@ export const InvoiceCreate: React.FC = () => {
   const calculateDateRange = (duration: string) => {
     const now = dayjs();
     let startDate = now;
-    let endDate = now;
+    const endDate = now;
 
     switch (duration) {
       case "1week":
-        endDate = now.add(7, "day");
+        startDate = now.subtract(7, "day");
         break;
       case "2weeks":
-        endDate = now.add(14, "day");
+        startDate = now.subtract(14, "day");
         break;
       case "1month":
-        endDate = now.add(30, "day");
+        startDate = now.subtract(30, "day");
+        break;
+      case "3months":
+        startDate = now.subtract(90, "day");
+        break;
+      case "6months":
+        startDate = now.subtract(180, "day");
+        break;
+      case "1year":
+        startDate = now.subtract(365, "day");
         break;
     }
 
@@ -167,14 +193,13 @@ export const InvoiceCreate: React.FC = () => {
             : p
         )
       );
-    } catch (error) {
-      console.error("Failed to fetch time summary:", error);
-      message.error("Failed to load project time summary");
+    } catch {
+      notificationApi.error({
+        message: "Failed to load project time summary",
+      });
       setProjectConfigs((prev) =>
         prev.map((p) =>
-          p.key === projectKey
-            ? { ...p, timeSummary: null, loading: false }
-            : p
+          p.key === projectKey ? { ...p, timeSummary: null, loading: false } : p
         )
       );
     }
@@ -187,8 +212,8 @@ export const InvoiceCreate: React.FC = () => {
     projectConfigs.forEach((projectConfig) => {
       if (projectConfig.timeSummary) {
         projectConfig.timeSummary.memberBreakdown.forEach((member) => {
-          // Use rate priority: member's effective rate > project hourly rate
-          const rate = member.effectiveRate ?? projectConfig.hourlyRate;
+          // Use rate priority: member's effective rate > 0 fallback
+          const rate = member.effectiveRate ?? 0;
 
           allAutoItems.push({
             key: `auto-${projectConfig.projectId}-${member.userId}`,
@@ -218,7 +243,9 @@ export const InvoiceCreate: React.FC = () => {
 
     // Check if project already added
     if (projectConfigs.some((p) => p.projectId === projectId)) {
-      message.warning("This project is already added");
+      notificationApi.warning({
+        message: "This project is already added",
+      });
       return;
     }
 
@@ -227,16 +254,20 @@ export const InvoiceCreate: React.FC = () => {
       handleCustomerChange(project.customerId);
     }
 
+    const newKey = `project-${Date.now()}`;
     const newConfig: ProjectConfig = {
-      key: `project-${Date.now()}`,
+      key: newKey,
       projectId: project.id,
       projectName: project.name,
-      hourlyRate: 0,
       timeSummary: null,
       loading: false,
     };
 
     setProjectConfigs([...projectConfigs, newConfig]);
+
+    // Immediately fetch time summary for the project
+    const duration = form.getFieldValue("duration") || "1month";
+    fetchTimeSummary(newKey, project.id, duration);
   };
 
   const handleRemoveProject = (projectKey: string) => {
@@ -254,29 +285,12 @@ export const InvoiceCreate: React.FC = () => {
     }
   };
 
-  const handleProjectHourlyRateChange = (projectKey: string, rate: number | null) => {
-    if (!rate) return;
-
-    setProjectConfigs((prev) =>
-      prev.map((p) => (p.key === projectKey ? { ...p, hourlyRate: rate } : p))
-    );
-
-    // Fetch time summary if not already loaded
-    const projectConfig = projectConfigs.find((p) => p.key === projectKey);
-    if (projectConfig && !projectConfig.timeSummary) {
-      const duration = form.getFieldValue("duration") || "1month";
-      fetchTimeSummary(projectKey, projectConfig.projectId, duration);
-    }
-  };
-
   const handleDurationChange = (duration: string) => {
     form.setFieldsValue({ duration });
 
-    // Refetch time summaries for all projects
+    // Refetch time summaries for all projects (now that they're loaded immediately)
     projectConfigs.forEach((projectConfig) => {
-      if (projectConfig.hourlyRate > 0) {
-        fetchTimeSummary(projectConfig.key, projectConfig.projectId, duration);
-      }
+      fetchTimeSummary(projectConfig.key, projectConfig.projectId, duration);
     });
   };
 
@@ -297,9 +311,10 @@ export const InvoiceCreate: React.FC = () => {
   const handleRemoveLineItem = (key: string) => {
     const item = lineItems.find((i) => i.key === key);
     if (item?.isAutoGenerated) {
-      message.warning(
-        "Cannot remove auto-generated items. Clear project to remove all."
-      );
+      notificationApi.warning({
+        message:
+          "Cannot remove auto-generated items. Clear project to remove all.",
+      });
       return;
     }
     setLineItems(lineItems.filter((item) => item.key !== key));
@@ -324,61 +339,134 @@ export const InvoiceCreate: React.FC = () => {
     );
   };
 
-  const handleSubmit = async (values: any) => {
-    // Validate: must have either line items OR project with hourly rate
-    const manualItems = lineItems.filter((item) => !item.isAutoGenerated);
+  const calculateTax = () => {
+    const subtotal = calculateSubtotal();
+    if (taxType === "percentage") {
+      return subtotal * (taxValue / 100);
+    } else if (taxType === "fixed") {
+      return taxValue;
+    }
+    return 0;
+  };
 
-    if (lineItems.length === 0) {
-      message.error("Please add at least one line item or add a project");
+  const calculateDiscount = () => {
+    const subtotal = calculateSubtotal();
+    if (discountType === "percentage") {
+      return subtotal * (discountValue / 100);
+    } else if (discountType === "fixed") {
+      return discountValue;
+    }
+    return 0;
+  };
+
+  const calculateTotal = () => {
+    const subtotal = calculateSubtotal();
+    const tax = calculateTax();
+    const discount = calculateDiscount();
+    return subtotal + tax - discount;
+  };
+
+  const handleSubmit = async (values: any) => {
+    // Validate: must have either line items OR projects
+    const manualItems = lineItems.filter((item) => !item.isAutoGenerated);
+    const hasProjects = projectConfigs.length > 0;
+    const hasItems = lineItems.length > 0;
+
+    if (!hasProjects && !hasItems) {
+      notificationApi.error({
+        message: "Please add at least one project or manual line item",
+      });
       return;
     }
 
-    // Validate manual line items
-    const invalidItems = manualItems.filter(
-      (item) =>
-        !item.description || item.quantity <= 0 || item.unitPrice <= 0
-    );
-
-    if (invalidItems.length > 0) {
-      message.error(
-        "Please fill in all manual line items with valid data"
+    // Validate manual line items if any exist
+    if (manualItems.length > 0) {
+      const invalidItems = manualItems.filter(
+        (item) => !item.description || item.quantity <= 0 || item.unitPrice <= 0
       );
-      return;
+
+      if (invalidItems.length > 0) {
+        notificationApi.error({
+          message: "Please fill in all manual line items with valid data",
+        });
+        return;
+      }
     }
 
     setIsLoading(true);
     try {
-      const invoiceData: any = {
-        duration: values.duration,
-        items: manualItems.map((item) => ({
+      const invoiceData: any = {};
+
+      // Add manual items only if they exist
+      if (manualItems.length > 0) {
+        invoiceData.items = manualItems.map((item) => ({
           description: item.description,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-        })),
-      };
+        }));
+      }
 
       // Add optional fields
       if (values.customerId) {
         invoiceData.customerId = values.customerId;
       }
 
+      // Add date range
+      if (dateRangeType === "predefined" && values.duration) {
+        invoiceData.duration = values.duration;
+      } else if (
+        dateRangeType === "custom" &&
+        values.startDate &&
+        values.endDate
+      ) {
+        invoiceData.startDate = values.startDate.format("YYYY-MM-DD");
+        invoiceData.endDate = values.endDate.format("YYYY-MM-DD");
+      }
+
       // Add projects if any configured
       if (projectConfigs.length > 0) {
         invoiceData.projectIds = projectConfigs.map((p) => ({
           projectId: p.projectId,
-          hourlyRate: p.hourlyRate,
         }));
+      }
+
+      // Add tax
+      if (taxType === "percentage") {
+        invoiceData.taxRate = taxValue;
+      } else if (taxType === "fixed") {
+        invoiceData.taxAmount = taxValue;
+      }
+
+      // Add discount
+      if (discountType === "percentage") {
+        invoiceData.discountRate = discountValue;
+      } else if (discountType === "fixed") {
+        invoiceData.discountAmount = discountValue;
+      }
+
+      // Add invoice dates
+      if (values.issueDate) {
+        invoiceData.issueDate = values.issueDate.format("YYYY-MM-DD");
+      }
+      if (values.dueDate) {
+        invoiceData.dueDate = values.dueDate.format("YYYY-MM-DD");
+      }
+
+      // Add notes
+      if (values.notes) {
+        invoiceData.notes = values.notes;
       }
 
       await Api.createInvoice(invoiceData);
 
-      message.success("Invoice created successfully");
+      notificationApi.success({
+        message: "Invoice created successfully",
+      });
       navigate(`/tenants/${slug}/invoices`);
-    } catch (error: any) {
-      console.error("Failed to create invoice:", error);
-      message.error(
-        error.response?.data?.message || "Failed to create invoice"
-      );
+    } catch (error) {
+      notificationApi.error({
+        message: getErrorMessage(error),
+      });
     } finally {
       setIsLoading(false);
     }
@@ -442,9 +530,7 @@ export const InvoiceCreate: React.FC = () => {
             formatter={(value) =>
               `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
             }
-            parser={(value) =>
-              Number(value!.replace(/\$\s?|(,*)/g, "")) as 0
-            }
+            parser={(value) => Number(value!.replace(/\$\s?|(,*)/g, "")) as 0}
             style={{ width: "100%" }}
           />
         ),
@@ -487,6 +573,7 @@ export const InvoiceCreate: React.FC = () => {
 
   return (
     <ResponsiveContainer maxWidth="xl">
+      {contextHolder}
       <Card
         title={
           <Space>
@@ -530,16 +617,88 @@ export const InvoiceCreate: React.FC = () => {
 
             <Col xs={24} md={12}>
               <Form.Item
-                label="Duration"
-                name="duration"
-                rules={[{ required: true, message: "Please select duration" }]}
-                initialValue="1month"
+                label="Date Range Type"
+                name="dateRangeType"
+                initialValue="predefined"
               >
-                <Select size="large" onChange={handleDurationChange}>
-                  <Select.Option value="1week">1 Week</Select.Option>
-                  <Select.Option value="2weeks">2 Weeks</Select.Option>
-                  <Select.Option value="1month">1 Month</Select.Option>
-                </Select>
+                <Radio.Group
+                  value={dateRangeType}
+                  onChange={(e) => setDateRangeType(e.target.value)}
+                  size="large"
+                >
+                  <Radio.Button value="predefined">Predefined</Radio.Button>
+                  <Radio.Button value="custom">Custom Range</Radio.Button>
+                </Radio.Group>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={[16, 0]}>
+            {dateRangeType === "predefined" ? (
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="Duration"
+                  name="duration"
+                  rules={[
+                    { required: true, message: "Please select duration" },
+                  ]}
+                  initialValue="1month"
+                >
+                  <Select size="large" onChange={handleDurationChange}>
+                    <Select.Option value="1week">1 Week</Select.Option>
+                    <Select.Option value="2weeks">2 Weeks</Select.Option>
+                    <Select.Option value="1month">1 Month</Select.Option>
+                    <Select.Option value="3months">3 Months</Select.Option>
+                    <Select.Option value="6months">6 Months</Select.Option>
+                    <Select.Option value="1year">1 Year</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+            ) : (
+              <>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    label="Start Date"
+                    name="startDate"
+                    rules={[
+                      { required: true, message: "Please select start date" },
+                    ]}
+                  >
+                    <DatePicker size="large" style={{ width: "100%" }} />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    label="End Date"
+                    name="endDate"
+                    rules={[
+                      { required: true, message: "Please select end date" },
+                    ]}
+                  >
+                    <DatePicker size="large" style={{ width: "100%" }} />
+                  </Form.Item>
+                </Col>
+              </>
+            )}
+          </Row>
+
+          <Row gutter={[16, 0]}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="Issue Date"
+                name="issueDate"
+                initialValue={dayjs()}
+              >
+                <DatePicker size="large" style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={12}>
+              <Form.Item
+                label="Due Date"
+                name="dueDate"
+                initialValue={dayjs().add(30, "day")}
+              >
+                <DatePicker size="large" style={{ width: "100%" }} />
               </Form.Item>
             </Col>
           </Row>
@@ -552,7 +711,10 @@ export const InvoiceCreate: React.FC = () => {
           </Divider>
 
           {projectConfigs.length > 0 && (
-            <Space direction="vertical" style={{ width: "100%", marginBottom: 16 }}>
+            <Space
+              direction="vertical"
+              style={{ width: "100%", marginBottom: 16 }}
+            >
               {projectConfigs.map((projectConfig) => (
                 <Card
                   key={projectConfig.key}
@@ -576,48 +738,30 @@ export const InvoiceCreate: React.FC = () => {
                   }
                 >
                   <Row gutter={[16, 16]}>
-                    <Col xs={24} md={12}>
-                      <Space direction="vertical" style={{ width: "100%" }}>
-                        <Text type="secondary">Hourly Rate</Text>
-                        <InputNumber
-                          value={projectConfig.hourlyRate}
-                          placeholder="Enter hourly rate"
-                          size="large"
-                          min={0.01}
-                          step={0.01}
-                          style={{ width: "100%" }}
-                          onChange={(rate) =>
-                            handleProjectHourlyRateChange(projectConfig.key, rate)
-                          }
-                          formatter={(value) =>
-                            `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                          }
-                          parser={(value) =>
-                            Number(value!.replace(/\$\s?|(,*)/g, "")) as 0
-                          }
-                        />
-                      </Space>
-                    </Col>
-                    <Col xs={24} md={12}>
+                    <Col xs={24} md={24}>
                       {projectConfig.timeSummary && (
                         <Spin spinning={projectConfig.loading}>
                           <Space direction="vertical" style={{ width: "100%" }}>
                             <Text type="secondary">Time Summary</Text>
                             <Alert
                               message={
-                                <Space direction="vertical" style={{ width: "100%" }}>
+                                <Space
+                                  direction="vertical"
+                                  style={{ width: "100%" }}
+                                >
                                   {projectConfig.timeSummary.memberBreakdown.map(
                                     (member) => {
-                                      const rate =
-                                        member.effectiveRate ??
-                                        projectConfig.hourlyRate;
+                                      const rate = member.effectiveRate ?? 0;
                                       return (
                                         <Row
                                           key={member.userId}
                                           justify="space-between"
                                         >
                                           <Col>
-                                            <Space direction="vertical" size={0}>
+                                            <Space
+                                              direction="vertical"
+                                              size={0}
+                                            >
                                               <Text>• {member.userName}:</Text>
                                               {member.effectiveRate && (
                                                 <Text
@@ -637,13 +781,17 @@ export const InvoiceCreate: React.FC = () => {
                                               size={0}
                                               align="end"
                                             >
-                                              <Text strong>{member.hours}h</Text>
+                                              <Text strong>
+                                                {member.hours}h
+                                              </Text>
                                               <Text
                                                 type="secondary"
                                                 style={{ fontSize: 11 }}
                                               >
                                                 $
-                                                {(member.hours * rate).toFixed(2)}
+                                                {(member.hours * rate).toFixed(
+                                                  2
+                                                )}
                                               </Text>
                                             </Space>
                                           </Col>
@@ -658,12 +806,12 @@ export const InvoiceCreate: React.FC = () => {
                                     </Col>
                                     <Col>
                                       <Text strong>
-                                        {projectConfig.timeSummary.totalHours}h = $
+                                        {projectConfig.timeSummary.totalHours}h
+                                        = $
                                         {projectConfig.timeSummary.memberBreakdown
                                           .reduce((sum, member) => {
                                             const rate =
-                                              member.effectiveRate ??
-                                              projectConfig.hourlyRate;
+                                              member.effectiveRate ?? 0;
                                             return sum + member.hours * rate;
                                           }, 0)
                                           .toLocaleString("en-US", {
@@ -696,9 +844,7 @@ export const InvoiceCreate: React.FC = () => {
             value={null}
             onChange={handleAddProject}
             filterOption={(input, option) =>
-              (option?.label ?? "")
-                .toLowerCase()
-                .includes(input.toLowerCase())
+              (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
             }
             options={filteredProjects
               .filter(
@@ -720,7 +866,8 @@ export const InvoiceCreate: React.FC = () => {
             rowKey="key"
             style={{ marginBottom: 16 }}
             locale={{
-              emptyText: "No line items. Add manually or select a project with hourly rate.",
+              emptyText:
+                "No line items. Add manually or select a project with hourly rate.",
             }}
           />
 
@@ -732,6 +879,99 @@ export const InvoiceCreate: React.FC = () => {
           >
             Add Manual Line Item
           </Button>
+
+          <Divider>Tax & Discount</Divider>
+
+          <Row gutter={[16, 16]}>
+            <Col xs={24} md={12}>
+              <Space direction="vertical" style={{ width: "100%" }}>
+                <Text strong>Tax</Text>
+                <Radio.Group
+                  value={taxType}
+                  onChange={(e) => setTaxType(e.target.value)}
+                  style={{ width: "100%" }}
+                >
+                  <Space direction="vertical">
+                    <Radio value="none">No Tax</Radio>
+                    <Radio value="percentage">Percentage</Radio>
+                    <Radio value="fixed">Fixed Amount</Radio>
+                  </Space>
+                </Radio.Group>
+                {(taxType === "percentage" || taxType === "fixed") && (
+                  <InputNumber
+                    value={taxValue}
+                    onChange={(value) => setTaxValue(value || 0)}
+                    min={0}
+                    max={taxType === "percentage" ? 100 : undefined}
+                    step={taxType === "percentage" ? 0.1 : 0.01}
+                    style={{ width: "100%" }}
+                    formatter={(value) =>
+                      taxType === "percentage"
+                        ? `${value}%`
+                        : `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                    }
+                    parser={(value) =>
+                      Number(value!.replace(/[%\$\s,]|(,*)/g, "")) as 0
+                    }
+                    placeholder={
+                      taxType === "percentage"
+                        ? "Enter tax percentage"
+                        : "Enter tax amount"
+                    }
+                  />
+                )}
+              </Space>
+            </Col>
+            <Col xs={24} md={12}>
+              <Space direction="vertical" style={{ width: "100%" }}>
+                <Text strong>Discount</Text>
+                <Radio.Group
+                  value={discountType}
+                  onChange={(e) => setDiscountType(e.target.value)}
+                  style={{ width: "100%" }}
+                >
+                  <Space direction="vertical">
+                    <Radio value="none">No Discount</Radio>
+                    <Radio value="percentage">Percentage</Radio>
+                    <Radio value="fixed">Fixed Amount</Radio>
+                  </Space>
+                </Radio.Group>
+                {(discountType === "percentage" ||
+                  discountType === "fixed") && (
+                  <InputNumber
+                    value={discountValue}
+                    onChange={(value) => setDiscountValue(value || 0)}
+                    min={0}
+                    max={discountType === "percentage" ? 100 : undefined}
+                    step={discountType === "percentage" ? 0.1 : 0.01}
+                    style={{ width: "100%" }}
+                    formatter={(value) =>
+                      discountType === "percentage"
+                        ? `${value}%`
+                        : `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                    }
+                    parser={(value) =>
+                      Number(value!.replace(/[%\$\s,]|(,*)/g, "")) as 0
+                    }
+                    placeholder={
+                      discountType === "percentage"
+                        ? "Enter discount percentage"
+                        : "Enter discount amount"
+                    }
+                  />
+                )}
+              </Space>
+            </Col>
+          </Row>
+
+          <Divider />
+
+          <Form.Item label="Notes" name="notes">
+            <TextArea
+              rows={3}
+              placeholder="Additional notes for the invoice (optional)"
+            />
+          </Form.Item>
 
           <Divider />
 
@@ -749,20 +989,42 @@ export const InvoiceCreate: React.FC = () => {
                   <Col>
                     <Text strong style={{ fontSize: 16 }}>
                       $
-                      {subtotal.toLocaleString("en-US", {
+                      {calculateSubtotal().toLocaleString("en-US", {
                         minimumFractionDigits: 2,
                       })}
                     </Text>
                   </Col>
                 </Row>
-                <Row justify="space-between">
-                  <Col>
-                    <Text>Tax:</Text>
-                  </Col>
-                  <Col>
-                    <Text>$0.00</Text>
-                  </Col>
-                </Row>
+                {taxType !== "none" && (
+                  <Row justify="space-between">
+                    <Col>
+                      <Text>Tax:</Text>
+                    </Col>
+                    <Col>
+                      <Text>
+                        $
+                        {calculateTax().toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </Text>
+                    </Col>
+                  </Row>
+                )}
+                {discountType !== "none" && (
+                  <Row justify="space-between">
+                    <Col>
+                      <Text>Discount:</Text>
+                    </Col>
+                    <Col>
+                      <Text style={{ color: "#52c41a" }}>
+                        -$
+                        {calculateDiscount().toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </Text>
+                    </Col>
+                  </Row>
+                )}
                 <Divider style={{ margin: "8px 0" }} />
                 <Row justify="space-between">
                   <Col>
@@ -773,7 +1035,7 @@ export const InvoiceCreate: React.FC = () => {
                   <Col>
                     <Title level={4} style={{ margin: 0 }}>
                       $
-                      {subtotal.toLocaleString("en-US", {
+                      {calculateTotal().toLocaleString("en-US", {
                         minimumFractionDigits: 2,
                       })}
                     </Title>

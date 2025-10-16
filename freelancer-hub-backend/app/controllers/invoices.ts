@@ -91,14 +91,24 @@ export default class InvoicesController {
     const data = await request.validateUsing(createInvoiceValidator)
 
     // Normalize input: convert old format to new format for consistency
-    let projectConfigs: Array<{ projectId: number; hourlyRate: number }> = []
+    let projectConfigs: Array<{ projectId: number }> = []
 
     if (data.projectIds && data.projectIds.length > 0) {
       // New format: multiple projects
       projectConfigs = data.projectIds
-    } else if (data.projectId && data.hourlyRate) {
+    } else if (data.projectId) {
       // Old format: single project (backward compatibility)
-      projectConfigs = [{ projectId: data.projectId, hourlyRate: data.hourlyRate }]
+      projectConfigs = [{ projectId: data.projectId }]
+    }
+
+    // Validate: must have either projects or manual items
+    const hasProjects = projectConfigs.length > 0
+    const hasItems = data.items && data.items.length > 0
+
+    if (!hasProjects && !hasItems) {
+      return response.badRequest({
+        error: 'Either projects or manual items must be provided',
+      })
     }
 
     // Determine customer
@@ -132,24 +142,50 @@ export default class InvoicesController {
       return response.notFound({ error: 'Customer not found' })
     }
 
-    // Calculate date range from duration
+    // Calculate date range from duration or custom dates
     const now = DateTime.now()
-    let startDate: DateTime
-    let endDate: DateTime
+    let startDate: DateTime = now.minus({ days: 30 }) // Default fallback
+    let endDate: DateTime = now // Default fallback
 
-    switch (data.duration) {
-      case '1week':
-        startDate = now
-        endDate = now.plus({ days: 7 })
-        break
-      case '2weeks':
-        startDate = now
-        endDate = now.plus({ days: 14 })
-        break
-      case '1month':
-        startDate = now
-        endDate = now.plus({ days: 30 })
-        break
+    if (data.startDate && data.endDate) {
+      // Use custom date range
+      startDate = DateTime.fromJSDate(data.startDate)
+      endDate = DateTime.fromJSDate(data.endDate)
+    } else if (data.duration) {
+      // Use predefined duration (backward from today)
+      switch (data.duration) {
+        case '1week':
+          startDate = now.minus({ days: 7 })
+          endDate = now
+          break
+        case '2weeks':
+          startDate = now.minus({ days: 14 })
+          endDate = now
+          break
+        case '1month':
+          startDate = now.minus({ days: 30 })
+          endDate = now
+          break
+        case '3months':
+          startDate = now.minus({ days: 90 })
+          endDate = now
+          break
+        case '6months':
+          startDate = now.minus({ days: 180 })
+          endDate = now
+          break
+        case '1year':
+          startDate = now.minus({ days: 365 })
+          endDate = now
+          break
+        default:
+          startDate = now.minus({ days: 30 })
+          endDate = now
+      }
+    } else {
+      // Default to 1 month if nothing specified
+      startDate = now.minus({ days: 30 })
+      endDate = now
     }
 
     const allItems: Array<{
@@ -161,7 +197,7 @@ export default class InvoicesController {
     }> = []
 
     // Process each project and generate line items
-    const invoiceProjectData: Array<{ projectId: number; hourlyRate: number }> = []
+    const invoiceProjectData: Array<{ projectId: number }> = []
 
     for (const projectConfig of projectConfigs) {
       // Fetch project details
@@ -176,7 +212,6 @@ export default class InvoicesController {
 
       invoiceProjectData.push({
         projectId: project.id,
-        hourlyRate: projectConfig.hourlyRate,
       })
 
       // Fetch time entries for this project with member-specific rates
@@ -185,14 +220,16 @@ export default class InvoicesController {
         .from('time_entries')
         .join('tasks', 'time_entries.task_id', 'tasks.id')
         .join('users', 'time_entries.user_id', 'users.id')
-        .leftJoin('project_members', function() {
-          this.on('project_members.user_id', 'users.id')
-            .andOn('project_members.project_id', 'tasks.project_id')
+        .leftJoin('project_members', function () {
+          this.on('project_members.user_id', 'users.id').andOn(
+            'project_members.project_id',
+            'tasks.project_id'
+          )
         })
         .where('tasks.project_id', project.id)
         .where('time_entries.billable', true)
-        .where('time_entries.date', '>=', startDate.toSQLDate())
-        .where('time_entries.date', '<=', endDate.toSQLDate())
+        .where('time_entries.date', '>=', startDate.toISODate()!)
+        .where('time_entries.date', '<=', endDate.toISODate()!)
         .select(
           'time_entries.user_id',
           'users.full_name as user_name',
@@ -213,10 +250,12 @@ export default class InvoicesController {
       for (const entry of timeEntries) {
         const hours = Number(entry.total_minutes) / 60
 
-        // Rate priority: project-specific > user default > invoice project rate
-        const projectSpecificRate = entry.project_specific_rate ? Number(entry.project_specific_rate) : null
+        // Rate priority: project-specific > user default > 0 fallback
+        const projectSpecificRate = entry.project_specific_rate
+          ? Number(entry.project_specific_rate)
+          : null
         const userDefaultRate = entry.user_default_rate ? Number(entry.user_default_rate) : null
-        const effectiveRate = projectSpecificRate ?? userDefaultRate ?? projectConfig.hourlyRate
+        const effectiveRate = projectSpecificRate ?? userDefaultRate ?? 0
 
         allItems.push({
           description: `Work by ${entry.user_name} on ${project.name}`,
@@ -229,21 +268,39 @@ export default class InvoicesController {
     }
 
     // Add manual line items
-    for (const item of data.items) {
-      allItems.push({
-        description: item.description,
-        quantity: item.quantity,
-        unit: 'unit',
-        unitPrice: item.unitPrice,
-        amount: item.quantity * item.unitPrice,
-      })
+    if (data.items && data.items.length > 0) {
+      for (const item of data.items) {
+        allItems.push({
+          description: item.description,
+          quantity: item.quantity,
+          unit: 'unit',
+          unitPrice: item.unitPrice,
+          amount: item.quantity * item.unitPrice,
+        })
+      }
     }
 
     // Calculate totals
     const subtotal = allItems.reduce((sum, item) => sum + item.amount, 0)
-    const taxRate = 0
-    const taxAmount = 0
-    const discountAmount = 0
+
+    // Calculate tax
+    let taxRate = 0
+    let taxAmount = 0
+    if (data.taxRate !== undefined) {
+      taxRate = data.taxRate
+      taxAmount = subtotal * (taxRate / 100)
+    } else if (data.taxAmount !== undefined) {
+      taxAmount = data.taxAmount
+    }
+
+    // Calculate discount
+    let discountAmount = 0
+    if (data.discountRate !== undefined) {
+      discountAmount = subtotal * (data.discountRate / 100)
+    } else if (data.discountAmount !== undefined) {
+      discountAmount = data.discountAmount
+    }
+
     const totalAmount = subtotal + taxAmount - discountAmount
 
     // Generate invoice number
@@ -262,6 +319,10 @@ export default class InvoicesController {
       .filter(Boolean)
       .join(', ')
 
+    // Determine issue and due dates
+    const issueDate = data.issueDate ? DateTime.fromJSDate(data.issueDate) : DateTime.now()
+    const dueDate = data.dueDate ? DateTime.fromJSDate(data.dueDate) : issueDate.plus({ days: 30 })
+
     // Create invoice (keep projectId for backward compatibility with first project)
     const invoice = await Invoice.create({
       tenantId: tenant.id,
@@ -270,14 +331,15 @@ export default class InvoicesController {
       customerId: customer.id,
       invoiceNumber,
       status: 'draft',
-      issueDate: DateTime.now(),
-      dueDate: DateTime.now().plus({ days: 30 }),
+      issueDate,
+      dueDate,
       subtotal,
       taxRate,
       taxAmount,
       discountAmount,
       totalAmount,
       amountPaid: 0,
+      notes: data.notes || null,
       currency: 'USD',
       clientName: customer.name,
       clientEmail: customer.email,
@@ -290,7 +352,6 @@ export default class InvoicesController {
       await InvoiceProject.create({
         invoiceId: invoice.id,
         projectId: projectData.projectId,
-        hourlyRate: projectData.hourlyRate,
       })
     }
 
@@ -318,8 +379,7 @@ export default class InvoicesController {
   /**
    * Generate invoice from time entries
    */
-  async generateFromTimeEntries({ tenant, auth, request, response }: HttpContext) {
-    const user = auth.getUserOrFail()
+  async generateFromTimeEntries({ tenant, request, response }: HttpContext) {
     const {
       userId,
       projectId,
