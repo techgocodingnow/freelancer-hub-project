@@ -43,12 +43,8 @@ export default class extends BaseSchema {
       table.integer('email_count').defaultTo(0).notNullable().after('sent_to')
       table.timestamp('last_email_sent_at').nullable().after('email_count')
 
-      // PDF
-      table.string('pdf_url').nullable().after('last_email_sent_at')
-      table.timestamp('pdf_generated_at').nullable().after('pdf_url')
-
       // Terms
-      table.string('payment_terms').nullable().after('pdf_generated_at')
+      table.string('payment_terms').nullable().after('last_email_sent_at')
 
       // Client Info
       table.string('client_name').nullable().after('payment_terms')

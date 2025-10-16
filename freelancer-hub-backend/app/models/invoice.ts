@@ -79,13 +79,6 @@ export default class Invoice extends BaseModel {
   @column.dateTime()
   declare lastEmailSentAt: DateTime | null
 
-  // PDF
-  @column()
-  declare pdfUrl: string | null
-
-  @column.dateTime()
-  declare pdfGeneratedAt: DateTime | null
-
   // Terms
   @column()
   declare paymentTerms: string | null
