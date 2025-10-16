@@ -1740,9 +1740,104 @@ When passing IDs from Refine hooks to components, type coercion may be needed:
 />
 ```
 
+### PDF Generation with Puppeteer
+
+When implementing PDF generation from HTML using Puppeteer:
+
+**1. Stream PDFs directly instead of storing files:**
+
+```typescript
+// Service returns Buffer
+async generateInvoicePDF(invoice: Invoice): Promise<Buffer> {
+  const html = this.generateInvoiceHTML(invoice)
+  const pdfBuffer = await this.convertHtmlToPdf(html)
+  return pdfBuffer
+}
+
+// Controller streams directly to response
+const pdfBuffer = await pdfService.generateInvoicePDF(invoice)
+response.header('Content-Type', 'application/pdf')
+response.header('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNumber}.pdf"`)
+return response.send(pdfBuffer)
+```
+
+**2. Puppeteer Configuration for Server Environments:**
+
+```typescript
+const browser = await puppeteer.launch({
+  headless: true,
+  args: ['--no-sandbox', '--disable-setuid-sandbox'], // Required for Docker/server
+})
+```
+
+**3. HTML to PDF Conversion:**
+
+- Use inline CSS (external stylesheets may not load)
+- Set proper page format and margins
+- Wait for content to load: `waitUntil: 'networkidle0'`
+- Always close browser in finally block to prevent memory leaks
+
+**4. Security - HTML Escaping:**
+
+Always escape user-provided content when generating HTML:
+
+```typescript
+private escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  }
+  return text.replace(/[&<>"']/g, (m) => map[m])
+}
+```
+
+**5. Testing PDF Generation:**
+
+- Verify PDF magic number: `%PDF` at start of buffer
+- Don't try to parse PDF content in tests - trust Puppeteer's rendering
+- Test behavior: authorization, error handling, response headers
+- Check for invoice number in binary string if needed: `buffer.toString('binary').includes(invoiceNumber)`
+
+**6. Authentication in AdonisJS Tests:**
+
+For token-based auth (`DbAccessTokensProvider`), create tokens directly:
+
+```typescript
+const generateToken = async (user: User): Promise<string> => {
+  const token = await User.accessTokens.create(user, ['*'], {
+    name: 'test-token',
+    expiresAt: null,
+  })
+  return token.value!.release()
+}
+
+// Use bearer token in tests
+const response = await client
+  .post('/api/v1/invoices/123/pdf')
+  .header('x-tenant-slug', tenant.slug)
+  .bearerToken(token)
+```
+
+**7. Route Patterns:**
+
+Routes use header-based tenant scoping, not URL parameters:
+
+```typescript
+// Correct
+.post('/api/v1/invoices/:id/pdf')
+.header('x-tenant-slug', tenant.slug)
+
+// Not like this (no /tenants/:slug in URL)
+.post('/api/v1/tenants/:slug/invoices/:id/pdf')
+```
+
 ## Resources and References
 
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
 - [Testing Library Principles](https://testing-library.com/docs/guiding-principles)
 - [Kent C. Dodds Testing JavaScript](https://testingjavascript.com/)
 - [Functional Programming in TypeScript](https://gcanti.github.io/fp-ts/)
+- [Puppeteer Documentation](https://pptr.dev/)
