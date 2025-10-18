@@ -1,5 +1,14 @@
 import { test } from '@japa/runner'
 import { EmailService } from '#services/email_service'
+import Invoice from '#models/invoice'
+import Payment from '#models/payment'
+import PayrollBatch from '#models/payroll_batch'
+import Invitation from '#models/invitation'
+import User from '#models/user'
+import Tenant from '#models/tenant'
+import Customer from '#models/customer'
+import Role from '#models/role'
+import { DateTime } from 'luxon'
 
 test.group('Email Service - Basic Email Sending', () => {
   test('should send a basic email successfully', async ({ assert }) => {
@@ -143,6 +152,202 @@ test.group('Email Service - Attachments', () => {
         },
       ],
     })
+
+    assert.isTrue(result)
+  })
+})
+
+test.group('Email Service - Invoice Emails', () => {
+  test('should send invoice email successfully', async ({ assert }) => {
+    const emailService = new EmailService()
+
+    // Create test data with unique identifiers
+    const timestamp = Date.now()
+    const tenant = await Tenant.create({
+      name: `Test Company ${timestamp}`,
+      slug: `test-company-${timestamp}`,
+    })
+
+    const user = await User.create({
+      email: `owner-${timestamp}@test.com`,
+      password: 'password',
+      fullName: 'Test Owner',
+    })
+
+    const customer = await Customer.create({
+      name: 'Test Customer',
+      email: `customer-${timestamp}@test.com`,
+      tenantId: tenant.id,
+    })
+
+    const invoice = await Invoice.create({
+      invoiceNumber: 'INV-001',
+      tenantId: tenant.id,
+      userId: user.id,
+      customerId: customer.id,
+      issueDate: DateTime.now(),
+      dueDate: DateTime.now().plus({ days: 30 }),
+      subtotal: 1000,
+      taxAmount: 0,
+      discountAmount: 0,
+      totalAmount: 1000,
+      amountPaid: 0,
+      currency: 'USD',
+      status: 'draft',
+    })
+
+    const result = await emailService.sendInvoiceEmail({
+      invoice,
+      to: `customer-${timestamp}@test.com`,
+    })
+
+    assert.isTrue(result)
+
+    // Verify invoice tracking was updated
+    await invoice.refresh()
+    assert.equal(invoice.sentTo, `customer-${timestamp}@test.com`)
+    assert.isNotNull(invoice.sentAt)
+    assert.equal(invoice.emailCount, 1)
+    assert.isNotNull(invoice.lastEmailSentAt)
+  })
+
+  test('should send invoice email with CC and custom message', async ({ assert }) => {
+    const emailService = new EmailService()
+
+    const timestamp = Date.now()
+    const tenant = await Tenant.create({
+      name: `Test Company 2 ${timestamp}`,
+      slug: `test-company-2-${timestamp}`,
+    })
+
+    const user = await User.create({
+      email: `owner2-${timestamp}@test.com`,
+      password: 'password',
+      fullName: 'Test Owner 2',
+    })
+
+    const customer = await Customer.create({
+      name: 'Test Customer 2',
+      email: `customer2-${timestamp}@test.com`,
+      tenantId: tenant.id,
+    })
+
+    const invoice = await Invoice.create({
+      invoiceNumber: 'INV-002',
+      tenantId: tenant.id,
+      userId: user.id,
+      customerId: customer.id,
+      issueDate: DateTime.now(),
+      dueDate: DateTime.now().plus({ days: 30 }),
+      subtotal: 2000,
+      taxAmount: 0,
+      discountAmount: 0,
+      totalAmount: 2000,
+      amountPaid: 0,
+      currency: 'USD',
+      status: 'draft',
+    })
+
+    const result = await emailService.sendInvoiceEmail({
+      invoice,
+      to: `customer2-${timestamp}@test.com`,
+      cc: ['accounting@test.com'],
+      subject: 'Custom Invoice Subject',
+      message: 'Thank you for your business!',
+    })
+
+    assert.isTrue(result)
+    await invoice.refresh()
+    assert.equal(invoice.emailCount, 1)
+  })
+
+  test('should reject invalid email in invoice sending', async ({ assert }) => {
+    const emailService = new EmailService()
+
+    const timestamp = Date.now()
+    const tenant = await Tenant.create({
+      name: `Test Company 3 ${timestamp}`,
+      slug: `test-company-3-${timestamp}`,
+    })
+
+    const user = await User.create({
+      email: `owner3-${timestamp}@test.com`,
+      password: 'password',
+      fullName: 'Test Owner 3',
+    })
+
+    const customer = await Customer.create({
+      name: 'Test Customer 3',
+      email: `customer3-${timestamp}@test.com`,
+      tenantId: tenant.id,
+    })
+
+    const invoice = await Invoice.create({
+      invoiceNumber: 'INV-003',
+      tenantId: tenant.id,
+      userId: user.id,
+      customerId: customer.id,
+      issueDate: DateTime.now(),
+      dueDate: DateTime.now().plus({ days: 30 }),
+      subtotal: 1500,
+      taxAmount: 0,
+      discountAmount: 0,
+      totalAmount: 1500,
+      amountPaid: 0,
+      currency: 'USD',
+      status: 'draft',
+    })
+
+    await assert.rejects(
+      async () => {
+        await emailService.sendInvoiceEmail({
+          invoice,
+          to: 'invalid-email',
+        })
+      },
+      'Invalid email address: invalid-email'
+    )
+
+    // Verify invoice was not updated
+    await invoice.refresh()
+    assert.isNull(invoice.sentAt)
+    assert.equal(invoice.emailCount, 0)
+  })
+})
+
+test.group('Email Service - Invitation Emails', () => {
+  test('should send invitation email successfully', async ({ assert }) => {
+    const emailService = new EmailService()
+
+    const timestamp = Date.now()
+    const tenant = await Tenant.create({
+      name: `Invitation Test Company ${timestamp}`,
+      slug: `invitation-test-${timestamp}`,
+    })
+
+    const inviter = await User.create({
+      email: `inviter-${timestamp}@test.com`,
+      password: 'password',
+      fullName: 'Test Inviter',
+    })
+
+    let role = await Role.query().where('name', 'member').first()
+    if (!role) {
+      role = await Role.create({
+        name: 'member',
+        description: 'Team member',
+      })
+    }
+
+    const invitation = await Invitation.createInvitation({
+      email: `newuser-${timestamp}@test.com`,
+      tenantId: tenant.id,
+      roleId: role.id,
+      invitedBy: inviter.id,
+      expiresInDays: 7,
+    })
+
+    const result = await emailService.sendInvitationEmail(invitation, 'http://localhost:5173')
 
     assert.isTrue(result)
   })
