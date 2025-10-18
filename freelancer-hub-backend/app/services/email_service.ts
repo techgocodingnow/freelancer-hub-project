@@ -150,7 +150,9 @@ export class EmailService {
    * Send payment confirmation email
    */
   async sendPaymentConfirmation(payment: Payment): Promise<boolean> {
-    await payment.load('invoice', 'user', 'tenant')
+    await payment.load('invoice')
+    await payment.load('user')
+    await payment.load('tenant')
 
     const to = payment.user?.email
     if (!to) {

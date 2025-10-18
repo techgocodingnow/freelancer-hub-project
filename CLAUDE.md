@@ -1900,6 +1900,193 @@ const handleDownloadPDF = async () => {
 - Include proper authentication headers (Bearer token and tenant slug)
 - If using Axios, set `responseType: 'blob'` in config
 
+### Email Sending with Resend
+
+When implementing email functionality with Resend:
+
+**1. Environment Configuration:**
+
+Add Resend configuration to `start/env.ts`:
+
+```typescript
+RESEND_API_KEY: Env.schema.string.optional(),
+EMAIL_FROM: Env.schema.string.optional(),
+EMAIL_FROM_NAME: Env.schema.string.optional(),
+```
+
+Update `.env.example` with documentation:
+
+```env
+# Email Configuration (Resend)
+# Get your API key from: https://resend.com/api-keys
+RESEND_API_KEY=re_your_api_key_here
+EMAIL_FROM=noreply@freelancerhub.com
+EMAIL_FROM_NAME=Freelancer Hub
+```
+
+**2. Service Implementation Pattern:**
+
+Initialize Resend client with graceful fallback:
+
+```typescript
+import { Resend } from 'resend'
+
+export class EmailService {
+  private resend: Resend | null
+
+  constructor() {
+    const apiKey = env.get('RESEND_API_KEY')
+    this.resend = apiKey ? new Resend(apiKey) : null
+  }
+
+  async sendEmail(options: EmailOptions): Promise<boolean> {
+    // Validate before sending
+    if (!this.isValidEmail(options.to)) {
+      throw new Error(`Invalid email address: ${options.to}`)
+    }
+
+    // Fallback to console logging if Resend not configured
+    if (!this.resend) {
+      console.log('📧 Email would be sent (Resend not configured):')
+      // ... log details
+      return true
+    }
+
+    try {
+      await this.resend.emails.send({
+        from: `${this.fromName} <${this.fromEmail}>`,
+        to: options.to,
+        cc: options.cc && options.cc.length > 0 ? options.cc : undefined,
+        subject: options.subject,
+        html: options.html,
+        attachments: options.attachments,
+      })
+      return true
+    } catch (error) {
+      console.error('Failed to send email via Resend:', error)
+      return false
+    }
+  }
+}
+```
+
+**3. Email Validation:**
+
+Always validate emails before attempting to send:
+
+```typescript
+private isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email) && !email.includes('\n') && !email.includes('\r')
+}
+```
+
+Key validation rules:
+- Check email format with regex
+- Reject emails with newlines (security risk - email header injection)
+- Reject emails with carriage returns
+- Validate CC recipients (max 10 per Resend limits)
+- Throw errors for invalid emails (fail fast)
+
+**4. Testing Email Services:**
+
+Use TDD with behavior-based tests:
+
+```typescript
+test('should send email with valid recipient', async ({ assert }) => {
+  const emailService = new EmailService()
+
+  const result = await emailService.sendEmail({
+    to: 'user@example.com',
+    subject: 'Test',
+    html: '<p>Test email</p>',
+  })
+
+  assert.isTrue(result)
+})
+
+test('should reject invalid email address', async ({ assert }) => {
+  const emailService = new EmailService()
+
+  await assert.rejects(
+    async () => {
+      await emailService.sendEmail({
+        to: 'not-an-email',
+        subject: 'Test',
+        html: '<p>Test</p>',
+      })
+    },
+    'Invalid email address: not-an-email'
+  )
+})
+```
+
+**5. Testing with Database Records:**
+
+When testing high-level email methods that use database records, use unique identifiers to avoid conflicts:
+
+```typescript
+test('should send invoice email successfully', async ({ assert }) => {
+  const timestamp = Date.now()
+
+  const tenant = await Tenant.create({
+    name: `Test Company ${timestamp}`,
+    slug: `test-company-${timestamp}`,
+  })
+
+  const user = await User.create({
+    email: `owner-${timestamp}@test.com`,
+    password: 'password',
+  })
+
+  // ... rest of test
+})
+```
+
+This prevents "duplicate key" errors when tests run multiple times.
+
+**6. Graceful Degradation:**
+
+The email service falls back to console logging when Resend is not configured, allowing:
+- Local development without API keys
+- Test environments without real email sending
+- Debugging email content in development
+
+**7. Email Tracking Pattern:**
+
+For invoices and other entities that track email sending:
+
+```typescript
+async sendInvoiceEmail(options: SendInvoiceEmailOptions): Promise<boolean> {
+  const sent = await this.sendEmail({
+    to: options.to,
+    cc: options.cc,
+    subject: emailSubject,
+    html,
+    attachments,
+  })
+
+  if (sent) {
+    // Update tracking fields
+    invoice.sentAt = DateTime.now()
+    invoice.sentTo = options.to
+    invoice.emailCount = (invoice.emailCount || 0) + 1
+    invoice.lastEmailSentAt = DateTime.now()
+    await invoice.save()
+  }
+
+  return sent
+}
+```
+
+**Key Gotchas:**
+- Resend requires verified sender domains in production
+- Test mode sends to your own email only
+- Attachments use `path` not `content` - Resend handles file reading
+- CC recipients count against rate limits
+- Always validate emails before sending to avoid API errors
+- Email validation must happen in `sendEmail` to catch all cases (don't duplicate in higher-level methods)
+
 ## Resources and References
 
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
@@ -1907,3 +2094,4 @@ const handleDownloadPDF = async () => {
 - [Kent C. Dodds Testing JavaScript](https://testingjavascript.com/)
 - [Functional Programming in TypeScript](https://gcanti.github.io/fp-ts/)
 - [Puppeteer Documentation](https://pptr.dev/)
+- [Resend Documentation](https://resend.com/docs)
