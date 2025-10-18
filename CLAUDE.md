@@ -1834,6 +1834,72 @@ Routes use header-based tenant scoping, not URL parameters:
 .post('/api/v1/tenants/:slug/invoices/:id/pdf')
 ```
 
+**8. Frontend: Downloading Streaming PDFs:**
+
+When the backend streams a PDF buffer directly (not a URL), the frontend must handle the binary response properly:
+
+```typescript
+// INCORRECT - Using useCustomMutation expects JSON, not binary
+const { mutate: generatePDF } = useCustomMutation();
+generatePDF({
+  url: `/invoices/${id}/pdf`,
+  method: "post",
+  values: {},
+});
+
+// CORRECT - Fetch with blob response type and trigger download
+const handleDownloadPDF = async () => {
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const tenantSlug = localStorage.getItem(TENANT_SLUG_KEY);
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+
+    const response = await fetch(`${apiBaseUrl}/invoices/${id}/pdf`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-Tenant-Slug": tenantSlug || "",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    // Get the PDF blob from response
+    const blob = await response.blob();
+
+    // Create download link
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `invoice-${invoiceNumber}.pdf`;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+
+    // Clean up
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }, 100);
+
+    message.success("PDF downloaded successfully");
+  } catch (error) {
+    console.error("PDF download error:", error);
+    message.error("Failed to download PDF. Please try again.");
+  }
+};
+```
+
+**Key points:**
+- Use native `fetch` API instead of Refine's `useCustomMutation` for binary responses
+- Response must be read as `.blob()`, not `.json()`
+- Create object URL from blob for download
+- Always clean up object URLs with `revokeObjectURL()` to prevent memory leaks
+- Include proper authentication headers (Bearer token and tenant slug)
+- If using Axios, set `responseType: 'blob'` in config
+
 ## Resources and References
 
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)

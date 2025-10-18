@@ -493,6 +493,7 @@ export default class extends BaseSeeder {
         email: 'sarah@acme-corp.com',
         role: 'admin' as const,
         positionName: 'Technical Lead',
+        hourlyRate: 30,
       },
       {
         projectIndex: 1,
@@ -500,6 +501,7 @@ export default class extends BaseSeeder {
         email: 'john@acme-corp.com',
         role: 'member' as const,
         positionName: 'Senior Developer',
+        hourlyRate: 30,
       },
       {
         projectIndex: 2,
@@ -507,6 +509,7 @@ export default class extends BaseSeeder {
         email: 'mike@tech-solutions.com',
         role: 'member' as const,
         positionName: 'Frontend Developer',
+        hourlyRate: 30,
       },
     ]
 
@@ -528,6 +531,7 @@ export default class extends BaseSeeder {
             role: membership.role,
             positionId: position?.id || null,
             joinedAt: DateTime.now(),
+            hourlyRate: membership.hourlyRate,
           })
           console.log(
             `  ✓ Added ${user.email} to project as ${membership.role} (${membership.positionName})`

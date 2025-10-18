@@ -658,7 +658,11 @@ class Api {
 
   generateInvoicePdf(id: number) {
     return this._privateInstance.post(
-      ENDPOINTS.invoices.generatePdf.replace(":invoiceId", id.toString())
+      ENDPOINTS.invoices.generatePdf.replace(":invoiceId", id.toString()),
+      {},
+      {
+        responseType: "blob",
+      }
     );
   }
 

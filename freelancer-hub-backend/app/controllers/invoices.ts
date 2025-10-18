@@ -1089,10 +1089,10 @@ export default class InvoicesController {
    * Generate PDF for invoice
    */
   async generatePdf({ tenant, userRole, params, response }: HttpContext) {
-    // Permission check: Only tenant owners can export PDFs
-    if (!userRole.isOwner()) {
+    // Permission check: Only tenant owners or admin can export PDFs
+    if (!userRole.isOwner() && !userRole.isAdmin()) {
       return response.forbidden({
-        error: 'Only tenant owners can export invoices',
+        message: 'Only tenant owners and admins can export invoices',
       })
     }
 
@@ -1116,7 +1116,7 @@ export default class InvoicesController {
       return response.send(pdfBuffer)
     } catch (error) {
       return response.internalServerError({
-        error: 'Failed to generate PDF',
+        message: 'Failed to generate PDF',
         details: error.message,
       })
     }

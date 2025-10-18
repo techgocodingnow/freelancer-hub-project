@@ -29,6 +29,7 @@ import { ResponsiveContainer } from "../../components/responsive";
 import { SendInvoiceModal } from "../../components/SendInvoiceModal";
 import dayjs from "dayjs";
 import { tokens } from "../../theme/tokens";
+import { TOKEN_KEY, TENANT_SLUG_KEY } from "../../constants/auth";
 
 const { Title, Text } = Typography;
 
@@ -54,9 +55,6 @@ export const InvoiceShow: React.FC = () => {
 
   // Send email mutation
   const { mutate: sendEmail } = useCustomMutation();
-
-  // Generate PDF mutation
-  const { mutate: generatePDF } = useCustomMutation();
 
   // Get status color
   const getStatusColor = (status: string) => {
@@ -106,67 +104,48 @@ export const InvoiceShow: React.FC = () => {
     });
   };
 
-  // Download PDF
-  const handleDownloadPDF = () => {
-    generatePDF(
-      {
-        url: "",
-        method: "post",
-        values: {},
-        config: { headers: {} },
-        meta: { resource: `invoices/${id}/pdf` },
-      },
-      {
-        onSuccess: async (data: any) => {
-          // Download PDF - check both possible response structures
-          const pdfUrl = data.pdfUrl || data.data?.pdfUrl;
+  // Download PDF - fetch as blob and trigger download
+  const handleDownloadPDF = async () => {
+    try {
+      const token = localStorage.getItem(TOKEN_KEY);
+      const tenantSlug = localStorage.getItem(TENANT_SLUG_KEY);
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 
-          if (pdfUrl) {
-            try {
-              // Try to fetch with credentials for same-origin requests
-              const response = await fetch(pdfUrl, {
-                credentials: 'include',
-              });
-
-              if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-              }
-
-              const blob = await response.blob();
-              const url = window.URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = `invoice-${invoice?.invoiceNumber || id}.pdf`;
-              a.style.display = "none";
-              document.body.appendChild(a);
-              a.click();
-
-              // Clean up after a short delay
-              setTimeout(() => {
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
-              }, 100);
-
-              message.success("PDF downloaded successfully");
-            } catch (error) {
-              console.error("PDF download error:", error);
-
-              // Fallback: Open in new tab if download fails (CORS issue)
-              message.warning("Opening PDF in new tab instead");
-              window.open(pdfUrl, "_blank");
-            }
-          } else {
-            console.error("No PDF URL in response:", data);
-            message.error("PDF URL not found in response");
-          }
-          refetch();
+      const response = await fetch(`${apiBaseUrl}/invoices/${id}/pdf`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Tenant-Slug": tenantSlug || "",
         },
-        onError: (error: any) => {
-          console.error("PDF generation error:", error);
-          message.error("Failed to generate PDF");
-        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    );
+
+      // Get the PDF blob from response
+      const blob = await response.blob();
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `invoice-${invoice?.invoiceNumber || id}.pdf`;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+
+      message.success("PDF downloaded successfully");
+    } catch (error) {
+      console.error("PDF download error:", error);
+      message.error("Failed to download PDF. Please try again.");
+    }
   };
 
   // Delete invoice
@@ -321,9 +300,7 @@ export const InvoiceShow: React.FC = () => {
                 <Button
                   icon={<EditOutlined />}
                   onClick={() =>
-                    navigate(
-                      `/tenants/${slug}/financials/invoices/${id}/edit`
-                    )
+                    navigate(`/tenants/${slug}/financials/invoices/${id}/edit`)
                   }
                   size={isMobile ? "middle" : "large"}
                 >
@@ -380,7 +357,10 @@ export const InvoiceShow: React.FC = () => {
                 {invoice.invoiceNumber}
               </Text>
               <div style={{ marginTop: "8px" }}>
-                <Tag color={getStatusColor(invoice.status)} style={{ fontSize: "14px" }}>
+                <Tag
+                  color={getStatusColor(invoice.status)}
+                  style={{ fontSize: "14px" }}
+                >
                   {invoice.status.toUpperCase()}
                 </Tag>
               </div>
@@ -416,7 +396,14 @@ export const InvoiceShow: React.FC = () => {
           <Row gutter={[24, 24]} style={{ marginBottom: "32px" }}>
             <Col xs={24} md={12}>
               <div>
-                <Text strong style={{ fontSize: "16px", display: "block", marginBottom: "8px" }}>
+                <Text
+                  strong
+                  style={{
+                    fontSize: "16px",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
                   Bill To:
                 </Text>
                 <Text strong style={{ fontSize: "16px", display: "block" }}>
@@ -428,7 +415,10 @@ export const InvoiceShow: React.FC = () => {
                   </Text>
                 )}
                 {invoice.clientAddress && (
-                  <Text type="secondary" style={{ display: "block", marginTop: "4px" }}>
+                  <Text
+                    type="secondary"
+                    style={{ display: "block", marginTop: "4px" }}
+                  >
                     {invoice.clientAddress}
                   </Text>
                 )}
@@ -436,7 +426,14 @@ export const InvoiceShow: React.FC = () => {
             </Col>
             <Col xs={24} md={12}>
               <div style={{ textAlign: isMobile ? "left" : "right" }}>
-                <Text strong style={{ fontSize: "16px", display: "block", marginBottom: "8px" }}>
+                <Text
+                  strong
+                  style={{
+                    fontSize: "16px",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
                   From:
                 </Text>
                 <Text strong style={{ fontSize: "16px", display: "block" }}>
@@ -458,7 +455,11 @@ export const InvoiceShow: React.FC = () => {
               <div style={{ marginBottom: "24px" }}>
                 <Space wrap>
                   {invoice.projects.map((project: any) => (
-                    <Tag key={project.id} color="blue" style={{ fontSize: "14px" }}>
+                    <Tag
+                      key={project.id}
+                      color="blue"
+                      style={{ fontSize: "14px" }}
+                    >
                       {project.name}
                     </Tag>
                   ))}
@@ -580,7 +581,10 @@ export const InvoiceShow: React.FC = () => {
               <Row gutter={[24, 24]}>
                 {invoice.notes && (
                   <Col xs={24} md={12}>
-                    <Text strong style={{ display: "block", marginBottom: "8px" }}>
+                    <Text
+                      strong
+                      style={{ display: "block", marginBottom: "8px" }}
+                    >
                       Notes:
                     </Text>
                     <Text>{invoice.notes}</Text>
@@ -588,7 +592,10 @@ export const InvoiceShow: React.FC = () => {
                 )}
                 {invoice.paymentTerms && (
                   <Col xs={24} md={12}>
-                    <Text strong style={{ display: "block", marginBottom: "8px" }}>
+                    <Text
+                      strong
+                      style={{ display: "block", marginBottom: "8px" }}
+                    >
                       Payment Terms:
                     </Text>
                     <Text>{invoice.paymentTerms}</Text>
