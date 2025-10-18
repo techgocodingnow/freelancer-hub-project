@@ -4,17 +4,10 @@ import PayrollBatch from '#models/payroll_batch'
 import Invitation from '#models/invitation'
 import { DateTime } from 'luxon'
 import env from '#start/env'
+import { Resend } from 'resend'
 
 /**
- * Email Service for sending invoices, receipts, and notifications
- *
- * NOTE: This is a placeholder implementation. In production, you would use:
- * - nodemailer: For SMTP email sending
- * - SendGrid: For transactional emails
- * - AWS SES: For scalable email delivery
- * - Mailgun: For email API
- *
- * For now, this service logs emails that would be sent
+ * Email Service for sending invoices, receipts, and notifications using Resend
  */
 
 export interface EmailOptions {
@@ -39,28 +32,68 @@ export interface SendInvoiceEmailOptions {
 export class EmailService {
   private fromEmail: string
   private fromName: string
+  private resend: Resend | null
 
   constructor() {
     this.fromEmail = env.get('EMAIL_FROM', 'noreply@freelancerhub.com')
     this.fromName = env.get('EMAIL_FROM_NAME', 'Freelancer Hub')
+
+    const apiKey = env.get('RESEND_API_KEY')
+    this.resend = apiKey ? new Resend(apiKey) : null
   }
 
   /**
    * Send an email
    */
   async sendEmail(options: EmailOptions): Promise<boolean> {
-    // In production, use nodemailer, SendGrid, etc.
-    console.log('📧 Email would be sent:')
-    console.log(`From: ${this.fromName} <${this.fromEmail}>`)
-    console.log(`To: ${options.to}`)
-    if (options.cc && options.cc.length > 0) {
-      console.log(`CC: ${options.cc.join(', ')}`)
+    // Validate primary email before attempting to send
+    if (!this.isValidEmail(options.to)) {
+      throw new Error(`Invalid email address: ${options.to}`)
     }
-    console.log(`Subject: ${options.subject}`)
-    console.log('---')
 
-    // Simulate email sending
-    return true
+    // Validate CC emails
+    if (options.cc && options.cc.length > 10) {
+      throw new Error('Maximum 10 CC recipients allowed')
+    }
+
+    if (options.cc) {
+      for (const email of options.cc) {
+        if (!this.isValidEmail(email)) {
+          throw new Error(`Invalid CC email address: ${email}`)
+        }
+      }
+    }
+
+    // If Resend is not configured, fall back to console logging
+    if (!this.resend) {
+      console.log('📧 Email would be sent (Resend not configured):')
+      console.log(`From: ${this.fromName} <${this.fromEmail}>`)
+      console.log(`To: ${options.to}`)
+      if (options.cc && options.cc.length > 0) {
+        console.log(`CC: ${options.cc.join(', ')}`)
+      }
+      console.log(`Subject: ${options.subject}`)
+      console.log('---')
+      return true
+    }
+
+    try {
+      await this.resend.emails.send({
+        from: `${this.fromName} <${this.fromEmail}>`,
+        to: options.to,
+        cc: options.cc && options.cc.length > 0 ? options.cc : undefined,
+        subject: options.subject,
+        html: options.html,
+        attachments: options.attachments?.map((att) => ({
+          filename: att.filename,
+          path: att.path,
+        })),
+      })
+      return true
+    } catch (error) {
+      console.error('Failed to send email via Resend:', error)
+      return false
+    }
   }
 
   /**
@@ -78,22 +111,6 @@ export class EmailService {
     const { invoice, to, cc = [], subject, message } = options
 
     await invoice.load('user', 'tenant')
-
-    // Validate primary email
-    if (!this.isValidEmail(to)) {
-      throw new Error(`Invalid email address: ${to}`)
-    }
-
-    // Validate CC emails
-    if (cc.length > 10) {
-      throw new Error('Maximum 10 CC recipients allowed')
-    }
-
-    for (const email of cc) {
-      if (!this.isValidEmail(email)) {
-        throw new Error(`Invalid CC email address: ${email}`)
-      }
-    }
 
     // Use custom subject or default
     const defaultSubject = `Invoice ${invoice.invoiceNumber} from ${invoice.tenant?.name || 'Freelancer Hub'}`

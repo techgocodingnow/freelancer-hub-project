@@ -37,4 +37,14 @@ export default await Env.create(new URL('../', import.meta.url), {
   ELECTRIC_URL: Env.schema.string.optional(),
   ELECTRIC_SOURCE_ID: Env.schema.string.optional(),
   ELECTRIC_SOURCE_SECRET: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | Variables for configuring email service (Resend)
+  |----------------------------------------------------------
+  */
+  RESEND_API_KEY: Env.schema.string.optional(),
+  EMAIL_FROM: Env.schema.string.optional(),
+  EMAIL_FROM_NAME: Env.schema.string.optional(),
+  FRONTEND_URL: Env.schema.string.optional(),
 })

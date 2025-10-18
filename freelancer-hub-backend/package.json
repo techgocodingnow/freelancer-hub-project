@@ -46,8 +46,9 @@
     "@japa/runner": "^4.4.0",
     "@swc/core": "1.13.5",
     "@types/luxon": "^3.7.1",
-    "@types/node": "^24.7.2",
-    "eslint": "^9.37.0",
+    "@types/node": "^24.8.1",
+    "@vinejs/vine": "^3.0.1",
+    "eslint": "^9.38.0",
     "hot-hook": "^0.4.0",
     "pino-pretty": "^13.1.2",
     "prettier": "^3.6.2",
@@ -60,13 +61,13 @@
     "@adonisjs/cors": "^2.2.1",
     "@adonisjs/lucid": "^21.8.0",
     "@electric-sql/client": "^1.0.14",
-    "@vinejs/vine": "^3.0.1",
     "adonis-autoswagger": "^3.73.0",
     "csv-parse": "^6.1.0",
     "luxon": "^3.7.2",
     "pg": "^8.16.3",
     "puppeteer": "^24.25.0",
-    "reflect-metadata": "^0.2.2"
+    "reflect-metadata": "^0.2.2",
+    "resend": "^6.2.0"
   },
   "hotHook": {
     "boundaries": [

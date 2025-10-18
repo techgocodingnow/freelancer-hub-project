@@ -52,7 +52,6 @@ interface AccountRequirement {
 
 export const WiseAccountSetup: React.FC = () => {
   const isMobile = useIsMobile();
-  const { slug } = useParams();
   const [form] = Form.useForm();
 
   // State
@@ -67,11 +66,8 @@ export const WiseAccountSetup: React.FC = () => {
 
   // Fetch Wise account info
   const {
-    query: {
-      data: wiseAccountData,
-      isLoading: isLoadingAccount,
-      refetch: refetchAccount,
-    },
+    result: wiseAccountData,
+    query: { refetch: refetchAccount },
   } = useCustom({
     url: "",
     method: "get",
