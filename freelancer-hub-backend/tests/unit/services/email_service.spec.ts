@@ -181,7 +181,7 @@ test.group('Email Service - Invoice Emails', () => {
     })
 
     const invoice = await Invoice.create({
-      invoiceNumber: 'INV-001',
+      invoiceNumber: `INV-001-${timestamp}`,
       tenantId: tenant.id,
       userId: user.id,
       customerId: customer.id,
@@ -233,7 +233,7 @@ test.group('Email Service - Invoice Emails', () => {
     })
 
     const invoice = await Invoice.create({
-      invoiceNumber: 'INV-002',
+      invoiceNumber: `INV-002-${timestamp}`,
       tenantId: tenant.id,
       userId: user.id,
       customerId: customer.id,
@@ -283,7 +283,7 @@ test.group('Email Service - Invoice Emails', () => {
     })
 
     const invoice = await Invoice.create({
-      invoiceNumber: 'INV-003',
+      invoiceNumber: `INV-003-${timestamp}`,
       tenantId: tenant.id,
       userId: user.id,
       customerId: customer.id,

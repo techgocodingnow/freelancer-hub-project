@@ -35,7 +35,7 @@ export class EmailService {
   private resend: Resend | null
 
   constructor() {
-    this.fromEmail = env.get('EMAIL_FROM', 'noreply@freelancerhub.com')
+    this.fromEmail = env.get('EMAIL_FROM', 'noreply@gocodingnow.com')
     this.fromName = env.get('EMAIL_FROM_NAME', 'Freelancer Hub')
 
     const apiKey = env.get('RESEND_API_KEY')
