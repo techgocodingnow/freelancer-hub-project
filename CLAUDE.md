@@ -2353,6 +2353,154 @@ async send({ tenant, userRole, params, request, response }: HttpContext) {
 - Buckets must be created via B2 web console before use
 - B2 pricing: $0.005/GB/month storage, $0.01/GB download
 
+### Email Security and HTML Escaping
+
+When implementing email functionality with user-controlled content, security is paramount:
+
+**1. HTML Escaping to Prevent XSS:**
+
+All user-controlled data must be escaped before inserting into HTML email templates:
+
+```typescript
+// In EmailService
+private escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  }
+  return text.replace(/[&<>"']/g, (m) => map[m])
+}
+
+// Usage in email template generation
+private generateInvitationEmailHTML(
+  invitation: Invitation,
+  baseUrl: string,
+  tenantName: string,
+  inviterName: string,
+  roleName: string,
+  projectName?: string
+): string {
+  // Escape all user-controlled content
+  const escapedTenantName = this.escapeHtml(tenantName)
+  const escapedInviterName = this.escapeHtml(inviterName)
+  const escapedRoleName = this.escapeHtml(roleName)
+  const escapedProjectName = projectName ? this.escapeHtml(projectName) : undefined
+
+  return `
+<!DOCTYPE html>
+<html>
+<body>
+  <p><strong>${escapedInviterName}</strong> has invited you to join <strong>${escapedTenantName}</strong>...</p>
+</body>
+</html>
+  `
+}
+```
+
+**Key Points:**
+- Escape tenant names, user names, project names, role names
+- Escape custom messages from users
+- Escape any data that originates from user input
+- Even though email clients sanitize scripts, proper escaping prevents layout breaks and phishing attacks
+
+**2. Request Validation with VineJS:**
+
+Always use proper validators instead of manual checks:
+
+```typescript
+// INCORRECT - Weak validation
+const { email, roleId, projectId } = request.only(['email', 'roleId', 'projectId'])
+
+if (!email || !email.includes('@')) {
+  return response.badRequest({ error: 'Valid email is required' })
+}
+
+// CORRECT - Use VineJS validator
+// app/validators/invitations.ts
+export const createInvitationValidator = vine.compile(
+  vine.object({
+    email: vine.string().email().normalizeEmail(),
+    roleId: vine.number().positive(),
+    projectId: vine.number().positive().optional(),
+  })
+)
+
+// In controller
+const data = await request.validateUsing(createInvitationValidator)
+const { email, roleId, projectId } = data
+```
+
+**3. Environment Configuration Best Practices:**
+
+Make email configuration optional for development, required for production:
+
+```typescript
+// start/env.ts
+/*
+|----------------------------------------------------------
+| Variables for configuring email service (Resend)
+| Note: All email settings are optional for development.
+| For production, set these to enable email functionality.
+|----------------------------------------------------------
+*/
+RESEND_API_KEY: Env.schema.string.optional(),
+EMAIL_FROM: Env.schema.string.optional(),
+EMAIL_FROM_NAME: Env.schema.string.optional(),
+
+// In EmailService constructor
+constructor() {
+  this.fromEmail = env.get('EMAIL_FROM') || 'noreply@freelancerhub.com'
+  this.fromName = env.get('EMAIL_FROM_NAME') || 'Freelancer Hub'
+
+  const apiKey = env.get('RESEND_API_KEY')
+  this.resend = apiKey ? new Resend(apiKey) : null
+}
+```
+
+**4. Email Template Guidelines:**
+
+- **No emojis**: Unless explicitly requested by user (per CLAUDE.md guidelines)
+- **Escape all user data**: Never trust user input
+- **Use inline CSS**: External stylesheets may not load in email clients
+- **Provide plain text alternative**: Improves spam score
+- **Test with malicious content**: Create tests with `<script>`, `<img>`, special characters
+
+**5. Testing Email Security:**
+
+```typescript
+test('should escape HTML in tenant name', async ({ assert }) => {
+  const emailService = new EmailService()
+
+  const tenant = await Tenant.create({
+    name: `<script>alert('xss')</script>Company`,
+    slug: `xss-test-${timestamp}`,
+  })
+
+  const invitation = await Invitation.createInvitation({
+    email: `test@example.com`,
+    tenantId: tenant.id,
+    roleId: role.id,
+    invitedBy: inviter.id,
+  })
+
+  const result = await emailService.sendInvitationEmail(invitation, 'http://localhost:5173')
+
+  assert.isTrue(result)
+  // Email should be sent successfully without being broken by HTML
+})
+```
+
+**Important Gotchas:**
+
+- Email clients generally sanitize `<script>` tags, but HTML injection can still break layout
+- Always escape data even if it seems "safe" - defense in depth
+- Don't rely on validation alone - escape at the point of use
+- Test with various malicious inputs: `<script>`, `<img>`, `&`, `<`, `>`, `"`, `'`
+- Email header injection: Validate emails don't contain `\n` or `\r`
+
 ## Resources and References
 
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
