@@ -7,6 +7,7 @@ import EmailService from '#services/email_service'
 import Notification from '#models/notification'
 import { DateTime } from 'luxon'
 import env from '#start/env'
+import { createInvitationValidator } from '#validators/invitations'
 
 export default class InvitationsController {
   /**
@@ -50,12 +51,8 @@ export default class InvitationsController {
       return response.forbidden({ error: 'Only admins and owners can invite users' })
     }
 
-    const { email, roleId, projectId } = request.only(['email', 'roleId', 'projectId'])
-
-    // Validate email
-    if (!email || !email.includes('@')) {
-      return response.badRequest({ error: 'Valid email is required' })
-    }
+    const data = await request.validateUsing(createInvitationValidator)
+    const { email, roleId, projectId } = data
 
     const normalizedEmail = email.toLowerCase()
 

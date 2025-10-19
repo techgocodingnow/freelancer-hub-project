@@ -41,11 +41,13 @@ export default await Env.create(new URL('../', import.meta.url), {
   /*
   |----------------------------------------------------------
   | Variables for configuring email service (Resend)
+  | Note: All email settings are optional for development.
+  | For production, set these to enable email functionality.
   |----------------------------------------------------------
   */
-  RESEND_API_KEY: Env.schema.string(),
-  EMAIL_FROM: Env.schema.string(),
-  EMAIL_FROM_NAME: Env.schema.string(),
+  RESEND_API_KEY: Env.schema.string.optional(),
+  EMAIL_FROM: Env.schema.string.optional(),
+  EMAIL_FROM_NAME: Env.schema.string.optional(),
   FRONTEND_URL: Env.schema.string.optional(),
 
   /*
