@@ -30,7 +30,7 @@ export default class Invitation extends BaseModel {
   declare invitedBy: number
 
   @column()
-  declare status: 'pending' | 'accepted' | 'expired' | 'cancelled'
+  declare status: 'pending' | 'accepted' | 'expired' | 'cancelled' | 'rejected'
 
   @column.dateTime()
   declare expiresAt: DateTime
@@ -129,7 +129,7 @@ export default class Invitation extends BaseModel {
     return this.isPending()
   }
 
-  async accept(userId: number): Promise<void> {
+  async accept(userId: number, options?: { client?: any }): Promise<void> {
     if (!this.canBeAccepted()) {
       throw new Error('Invitation cannot be accepted')
     }
@@ -137,26 +137,41 @@ export default class Invitation extends BaseModel {
     this.status = 'accepted'
     this.acceptedAt = DateTime.now()
     this.acceptedBy = userId
+
+    if (options?.client) {
+      this.useTransaction(options.client)
+    }
+
     await this.save()
   }
 
-  async cancel(): Promise<void> {
+  async cancel(options?: { client?: any }): Promise<void> {
     if (this.status !== 'pending') {
       throw new Error('Only pending invitations can be cancelled')
     }
 
     this.status = 'cancelled'
+
+    if (options?.client) {
+      this.useTransaction(options.client)
+    }
+
     await this.save()
   }
 
-  async markAsExpired(): Promise<void> {
+  async markAsExpired(options?: { client?: any }): Promise<void> {
     if (this.status === 'pending' && this.isExpired()) {
       this.status = 'expired'
+
+      if (options?.client) {
+        this.useTransaction(options.client)
+      }
+
       await this.save()
     }
   }
 
-  async reject(userId: number): Promise<void> {
+  async reject(userId: number, options?: { client?: any }): Promise<void> {
     if (this.status !== 'pending') {
       throw new Error('Only pending invitations can be rejected')
     }
@@ -164,6 +179,11 @@ export default class Invitation extends BaseModel {
     this.status = 'rejected'
     this.acceptedBy = userId
     this.acceptedAt = DateTime.now()
+
+    if (options?.client) {
+      this.useTransaction(options.client)
+    }
+
     await this.save()
   }
 

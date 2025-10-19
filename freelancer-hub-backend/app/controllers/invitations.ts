@@ -8,6 +8,7 @@ import Notification from '#models/notification'
 import { DateTime } from 'luxon'
 import env from '#start/env'
 import { createInvitationValidator } from '#validators/invitations'
+import db from '@adonisjs/lucid/services/db'
 
 export default class InvitationsController {
   /**
@@ -358,16 +359,29 @@ export default class InvitationsController {
       return response.conflict({ error: 'You are already a member of this project' })
     }
 
-    // Add user to project
-    await ProjectMember.create({
-      projectId: invitation.projectId,
-      userId: currentUser.id,
-      role: invitation.role.name as 'owner' | 'admin' | 'member' | 'viewer',
-      joinedAt: DateTime.now(),
-    })
+    // Use transaction to ensure atomicity
+    const trx = await db.transaction()
 
-    // Mark invitation as accepted
-    await invitation.accept(currentUser.id)
+    try {
+      // Add user to project
+      await ProjectMember.create(
+        {
+          projectId: invitation.projectId,
+          userId: currentUser.id,
+          role: invitation.role.name as 'owner' | 'admin' | 'member' | 'viewer',
+          joinedAt: DateTime.now(),
+        },
+        { client: trx }
+      )
+
+      // Mark invitation as accepted
+      await invitation.accept(currentUser.id, { client: trx })
+
+      await trx.commit()
+    } catch (error) {
+      await trx.rollback()
+      throw error
+    }
 
     return response.ok({
       message: 'Invitation accepted successfully',

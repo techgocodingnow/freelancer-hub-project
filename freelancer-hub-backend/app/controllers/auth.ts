@@ -146,7 +146,7 @@ export default class AuthController {
 
       // Mark invitation as accepted
       if (invitation) {
-        await invitation.accept(user.id)
+        await invitation.accept(user.id, { client: trx })
       }
 
       await trx.commit()
