@@ -8,7 +8,6 @@ import {
   updateProjectValidator,
   addProjectMemberValidator,
   updateProjectMemberValidator,
-  updateProjectMemberRateValidator,
 } from '#validators/projects'
 
 export default class ProjectsController {
@@ -19,12 +18,17 @@ export default class ProjectsController {
     const page = request.input('_start', 0) / request.input('_end', 10) + 1 || 1
     const perPage = request.input('_end', 10) - request.input('_start', 0) || 10
     const status = request.input('status')
+    const customerId = request.input('customer_id')
 
     const query = Project.query().where('tenant_id', tenant.id)
 
     // Filter by status if provided
     if (status) {
       query.where('status', status)
+    }
+
+    if (customerId) {
+      query.where('customerId', customerId)
     }
 
     // Sorting
@@ -379,7 +383,7 @@ export default class ProjectsController {
       return response.forbidden({ error: 'Only project owners and admins can update member rates' })
     }
 
-    const data = await request.validateUsing(updateProjectMemberRateValidator)
+    const data = await request.validateUsing(updateProjectMemberValidator)
 
     const memberToUpdate = await ProjectMember.query()
       .where('project_id', project.id)
@@ -422,9 +426,11 @@ export default class ProjectsController {
       .from('time_entries')
       .join('tasks', 'time_entries.task_id', 'tasks.id')
       .join('users', 'time_entries.user_id', 'users.id')
-      .leftJoin('project_members', function() {
-        this.on('project_members.user_id', 'users.id')
-          .andOn('project_members.project_id', 'tasks.project_id')
+      .leftJoin('project_members', function () {
+        this.on('project_members.user_id', 'users.id').andOn(
+          'project_members.project_id',
+          'tasks.project_id'
+        )
       })
       .where('tasks.project_id', projectId)
       .where('time_entries.billable', true)
@@ -437,30 +443,31 @@ export default class ProjectsController {
       timeEntriesQuery.where('time_entries.date', '<=', endDate)
     }
 
-    const timeEntries = await timeEntriesQuery.select(
-      'time_entries.user_id',
-      'users.full_name as user_name',
-      'users.hourly_rate as user_default_rate',
-      'project_members.hourly_rate as project_specific_rate',
-      db.raw('SUM(time_entries.duration_minutes) as total_minutes')
-    ).groupBy(
-      'time_entries.user_id',
-      'users.full_name',
-      'users.hourly_rate',
-      'project_members.hourly_rate'
-    )
+    const timeEntries = await timeEntriesQuery
+      .select(
+        'time_entries.user_id',
+        'users.full_name as user_name',
+        'users.hourly_rate as user_default_rate',
+        'project_members.hourly_rate as project_specific_rate',
+        db.raw('SUM(time_entries.duration_minutes) as total_minutes')
+      )
+      .groupBy(
+        'time_entries.user_id',
+        'users.full_name',
+        'users.hourly_rate',
+        'project_members.hourly_rate'
+      )
 
     // Calculate totals
-    const totalMinutes = timeEntries.reduce(
-      (sum, entry) => sum + Number(entry.total_minutes),
-      0
-    )
+    const totalMinutes = timeEntries.reduce((sum, entry) => sum + Number(entry.total_minutes), 0)
     const totalHours = totalMinutes / 60
 
     // Format per-member breakdown with rate information
     const memberBreakdown = timeEntries.map((entry) => {
       const hours = Number(entry.total_minutes) / 60
-      const projectSpecificRate = entry.project_specific_rate ? Number(entry.project_specific_rate) : null
+      const projectSpecificRate = entry.project_specific_rate
+        ? Number(entry.project_specific_rate)
+        : null
       const defaultRate = entry.user_default_rate ? Number(entry.user_default_rate) : null
       const effectiveRate = projectSpecificRate ?? defaultRate
 

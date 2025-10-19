@@ -3,6 +3,7 @@ import Payment from '#models/payment'
 import PayrollBatch from '#models/payroll_batch'
 import puppeteer from 'puppeteer'
 import { DateTime } from 'luxon'
+import storageService from '#services/storage_service'
 
 /**
  * PDF Service for generating invoices, receipts, and reports using Puppeteer
@@ -26,6 +27,54 @@ export class PdfService {
     const pdfBuffer = await this.convertHtmlToPdf(html)
 
     return pdfBuffer
+  }
+
+  /**
+   * Generate invoice PDF and store in B2 storage
+   * Updates the invoice record with the PDF key
+   */
+  async generateAndStoreInvoicePDF(invoice: Invoice): Promise<string> {
+    // Generate PDF buffer
+    const pdfBuffer = await this.generateInvoicePDF(invoice)
+
+    // Upload to B2 if configured
+    if (storageService.isConfigured()) {
+      const objectKey = await storageService.uploadInvoicePDF(
+        invoice.tenantId,
+        invoice.invoiceNumber,
+        pdfBuffer
+      )
+
+      // Update invoice with PDF key
+      invoice.pdfKey = objectKey
+      await invoice.save()
+
+      return objectKey
+    } else {
+      console.log(
+        `📄 PDF generated for invoice ${invoice.invoiceNumber} but B2 storage not configured`
+      )
+      return ''
+    }
+  }
+
+  /**
+   * Get presigned URL for invoice PDF
+   * Generates PDF and stores if not already stored
+   */
+  async getInvoicePDFUrl(invoice: Invoice, expiresIn: number = 86400): Promise<string> {
+    // If PDF not yet stored, generate and store it
+    if (!invoice.pdfKey && storageService.isConfigured()) {
+      await this.generateAndStoreInvoicePDF(invoice)
+    }
+
+    // Generate presigned URL if we have a PDF key
+    if (invoice.pdfKey && storageService.isConfigured()) {
+      return await storageService.getPresignedUrl(invoice.pdfKey, expiresIn)
+    }
+
+    // Fallback: return empty string if B2 not configured
+    return ''
   }
 
   /**

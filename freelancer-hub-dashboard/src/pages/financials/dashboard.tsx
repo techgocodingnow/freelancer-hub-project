@@ -13,8 +13,6 @@ import {
 } from "antd";
 import {
   DollarOutlined,
-  RiseOutlined,
-  FallOutlined,
   FileTextOutlined,
   CreditCardOutlined,
   TeamOutlined,
@@ -29,8 +27,6 @@ import { tokens } from "../../theme/tokens";
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,

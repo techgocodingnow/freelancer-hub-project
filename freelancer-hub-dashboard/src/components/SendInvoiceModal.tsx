@@ -1,13 +1,18 @@
 import React, { useState } from "react";
-import { Modal, Form, Input, Button, message, Select, Space, Typography } from "antd";
-import { MailOutlined, PlusOutlined, MinusCircleOutlined } from "@ant-design/icons";
+import { Modal, Form, Input, Button, message, Space, Typography } from "antd";
+import {
+  MailOutlined,
+  PlusOutlined,
+  MinusCircleOutlined,
+} from "@ant-design/icons";
+import { useNotification } from "../hooks/useNotification";
+import { getErrorMessage } from "../utils/error";
 
 const { TextArea } = Input;
 const { Text } = Typography;
 
 interface SendInvoiceModalProps {
   visible: boolean;
-  invoiceId: number | null;
   invoiceNumber?: string;
   defaultEmail?: string;
   onCancel: () => void;
@@ -21,7 +26,6 @@ interface SendInvoiceModalProps {
 
 export const SendInvoiceModal: React.FC<SendInvoiceModalProps> = ({
   visible,
-  invoiceId,
   invoiceNumber,
   defaultEmail,
   onCancel,
@@ -29,6 +33,7 @@ export const SendInvoiceModal: React.FC<SendInvoiceModalProps> = ({
 }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const { notificationApi } = useNotification();
 
   const handleOk = async () => {
     try {
@@ -36,13 +41,17 @@ export const SendInvoiceModal: React.FC<SendInvoiceModalProps> = ({
       setLoading(true);
       await onSubmit(values);
       form.resetFields();
-      message.success("Invoice sent successfully");
+      notificationApi.success({
+        message: "Invoice sent successfully",
+      });
     } catch (error: any) {
       if (error.errorFields) {
         // Validation error from form
         return;
       }
-      message.error(error.message || "Failed to send invoice");
+      notificationApi.error({
+        message: getErrorMessage(error),
+      });
     } finally {
       setLoading(false);
     }
@@ -100,16 +109,26 @@ export const SendInvoiceModal: React.FC<SendInvoiceModalProps> = ({
           <Form.List name="ccEmails">
             {(fields, { add, remove }) => (
               <>
-                {fields.map((field, index) => (
-                  <Space key={field.key} style={{ display: "flex", marginBottom: 8 }} align="baseline">
+                {fields.map((field) => (
+                  <Space
+                    key={field.key}
+                    style={{ display: "flex", marginBottom: 8 }}
+                    align="baseline"
+                  >
                     <Form.Item
                       {...field}
                       rules={[
-                        { type: "email", message: "Please enter a valid email address" },
+                        {
+                          type: "email",
+                          message: "Please enter a valid email address",
+                        },
                       ]}
                       style={{ marginBottom: 0, flex: 1 }}
                     >
-                      <Input placeholder="cc@example.com" prefix={<MailOutlined />} />
+                      <Input
+                        placeholder="cc@example.com"
+                        prefix={<MailOutlined />}
+                      />
                     </Form.Item>
                     <MinusCircleOutlined onClick={() => remove(field.name)} />
                   </Space>

@@ -290,7 +290,7 @@ test.group('Invoice PDF Generation', (group) => {
 
     response.assertStatus(403)
     response.assertBodyContains({
-      error: 'Only tenant owners can export invoices',
+      message: 'Only tenant owners and admins can export invoices',
     })
   })
 

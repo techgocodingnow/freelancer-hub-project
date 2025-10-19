@@ -8,7 +8,6 @@ import {
   Typography,
   Alert,
   Spin,
-  notification,
 } from "antd";
 import { SaveOutlined, BankOutlined } from "@ant-design/icons";
 import { useGetIdentity } from "@refinedev/core";
@@ -17,6 +16,7 @@ import { ResponsiveContainer } from "../../components/responsive";
 import api from "../../services/api/api";
 import type { TenantPaymentInfo } from "../../services/api/types";
 import { getErrorMessage } from "../../utils/error";
+import { useNotification } from "../../hooks/useNotification";
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -25,7 +25,7 @@ export const PaymentInfoSettings: React.FC = () => {
   const isMobile = useIsMobile();
   const [form] = Form.useForm();
   const { data: identity } = useGetIdentity();
-  const [notificationApi, contentHolder] = notification.useNotification();
+  const { notificationApi } = useNotification();
 
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);

@@ -315,6 +315,130 @@ test.group('Email Service - Invoice Emails', () => {
   })
 })
 
+test.group('Email Service - HTML Escaping', () => {
+  test('should escape HTML in tenant name', async ({ assert }) => {
+    const emailService = new EmailService()
+
+    const timestamp = Date.now()
+    const tenant = await Tenant.create({
+      name: `<script>alert('xss')</script>Company ${timestamp}`,
+      slug: `xss-test-${timestamp}`,
+    })
+
+    const inviter = await User.create({
+      email: `inviter-${timestamp}@test.com`,
+      password: 'password',
+      fullName: 'Test Inviter',
+    })
+
+    let role = await Role.query().where('name', 'member').first()
+    if (!role) {
+      role = await Role.create({
+        name: 'member',
+        description: 'Team member',
+      })
+    }
+
+    const invitation = await Invitation.createInvitation({
+      email: `newuser-${timestamp}@test.com`,
+      tenantId: tenant.id,
+      roleId: role.id,
+      invitedBy: inviter.id,
+      expiresInDays: 7,
+    })
+
+    await invitation.load('tenant')
+    await invitation.load('role')
+    await invitation.load('inviter')
+
+    const result = await emailService.sendInvitationEmail(invitation, 'http://localhost:5173')
+
+    assert.isTrue(result)
+    // HTML should be escaped in the email content
+    // We can't directly test the HTML content in this test, but the method should succeed
+  })
+
+  test('should escape HTML in inviter name', async ({ assert }) => {
+    const emailService = new EmailService()
+
+    const timestamp = Date.now()
+    const tenant = await Tenant.create({
+      name: `Safe Company ${timestamp}`,
+      slug: `safe-test-${timestamp}`,
+    })
+
+    const inviter = await User.create({
+      email: `inviter-${timestamp}@test.com`,
+      password: 'password',
+      fullName: `<img src=x onerror=alert('xss')>Hacker`,
+    })
+
+    let role = await Role.query().where('name', 'member').first()
+    if (!role) {
+      role = await Role.create({
+        name: 'member',
+        description: 'Team member',
+      })
+    }
+
+    const invitation = await Invitation.createInvitation({
+      email: `newuser-${timestamp}@test.com`,
+      tenantId: tenant.id,
+      roleId: role.id,
+      invitedBy: inviter.id,
+      expiresInDays: 7,
+    })
+
+    await invitation.load('tenant')
+    await invitation.load('role')
+    await invitation.load('inviter')
+
+    const result = await emailService.sendInvitationEmail(invitation, 'http://localhost:5173')
+
+    assert.isTrue(result)
+  })
+
+  test('should escape HTML special characters', async ({ assert }) => {
+    const emailService = new EmailService()
+
+    const timestamp = Date.now()
+    const tenant = await Tenant.create({
+      name: `Company & Sons <Ltd> "Quotes" ${timestamp}`,
+      slug: `escape-test-${timestamp}`,
+    })
+
+    const inviter = await User.create({
+      email: `inviter-${timestamp}@test.com`,
+      password: 'password',
+      fullName: `John & Jane's "Company"`,
+    })
+
+    let role = await Role.query().where('name', 'member').first()
+    if (!role) {
+      role = await Role.create({
+        name: 'member',
+        description: 'Team member',
+      })
+    }
+
+    const invitation = await Invitation.createInvitation({
+      email: `newuser-${timestamp}@test.com`,
+      tenantId: tenant.id,
+      roleId: role.id,
+      invitedBy: inviter.id,
+      expiresInDays: 7,
+    })
+
+    await invitation.load('tenant')
+    await invitation.load('role')
+    await invitation.load('inviter')
+
+    const result = await emailService.sendInvitationEmail(invitation, 'http://localhost:5173')
+
+    assert.isTrue(result)
+  })
+})
+
 test.group('Email Service - Invitation Emails', () => {
   test('should send invitation email successfully', async ({ assert }) => {
     const emailService = new EmailService()

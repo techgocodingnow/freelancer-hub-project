@@ -78,7 +78,7 @@ export const InvoiceShow: React.FC = () => {
     return new Promise<void>((resolve, reject) => {
       sendEmail(
         {
-          url: "",
+          url: `invoices/${id}/send`,
           method: "post",
           values: {
             email: values.email,
@@ -86,18 +86,15 @@ export const InvoiceShow: React.FC = () => {
             subject: values.subject,
             message: values.message,
           },
-          config: { headers: {} },
-          meta: { resource: `invoices/${id}/send` },
         },
         {
           onSuccess: () => {
             refetch();
             setIsSendModalOpen(false);
-            message.success("Invoice sent successfully");
             resolve();
           },
-          onError: (error: any) => {
-            reject(new Error(error?.message || "Failed to send invoice"));
+          onError: (error) => {
+            reject(error);
           },
         }
       );
@@ -627,7 +624,6 @@ export const InvoiceShow: React.FC = () => {
         {/* Send Invoice Modal */}
         <SendInvoiceModal
           visible={isSendModalOpen}
-          invoiceId={invoice.id as number}
           invoiceNumber={invoice.invoiceNumber}
           defaultEmail={invoice.clientEmail || invoice.sentTo}
           onCancel={() => setIsSendModalOpen(false)}

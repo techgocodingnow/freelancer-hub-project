@@ -32,6 +32,7 @@ import { Api } from "../../services/api";
 import { useShow } from "@refinedev/core";
 import dayjs from "dayjs";
 import { getErrorMessage } from "../../utils/error";
+import { useNotification } from "../../hooks/useNotification";
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -71,7 +72,7 @@ export const InvoiceEdit: React.FC = () => {
   const navigate = useNavigate();
   const { slug, id } = useParams();
   const [form] = Form.useForm();
-  const [notificationApi, contextHolder] = notification.useNotification();
+  const { notificationApi } = useNotification();
 
   // Fetch existing invoice
   const { query } = useShow({
@@ -119,7 +120,9 @@ export const InvoiceEdit: React.FC = () => {
       form.setFieldsValue({
         customerId: invoice.customerId,
         issueDate: invoice.issueDate ? dayjs(invoice.issueDate) : dayjs(),
-        dueDate: invoice.dueDate ? dayjs(invoice.dueDate) : dayjs().add(30, "day"),
+        dueDate: invoice.dueDate
+          ? dayjs(invoice.dueDate)
+          : dayjs().add(30, "day"),
         notes: invoice.notes,
       });
       setSelectedCustomerId(invoice.customerId);
@@ -626,7 +629,6 @@ export const InvoiceEdit: React.FC = () => {
 
   return (
     <ResponsiveContainer maxWidth="xl">
-      {contextHolder}
       {loadingInvoice ? (
         <div style={{ textAlign: "center", padding: "50px" }}>
           <Spin size="large" />
@@ -655,495 +657,504 @@ export const InvoiceEdit: React.FC = () => {
             </Space>
           }
         >
-        <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Row gutter={[16, 0]}>
-            <Col xs={24} md={12}>
-              <Form.Item
-                label="Customer"
-                name="customerId"
-                rules={[
-                  { required: true, message: "Please select a customer" },
-                ]}
-              >
-                <Select
-                  placeholder="Select a customer"
-                  size="large"
-                  loading={loadingCustomers}
-                  showSearch
-                  optionFilterProp="children"
-                  onChange={handleCustomerChange}
-                  filterOption={(input, option) =>
-                    (option?.label ?? "")
-                      .toLowerCase()
-                      .includes(input.toLowerCase())
-                  }
-                  options={customers.map((customer) => ({
-                    value: customer.id,
-                    label: customer.company
-                      ? `${customer.name} (${customer.company})`
-                      : customer.name,
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} md={12}>
-              <Form.Item
-                label="Date Range Type"
-                name="dateRangeType"
-                initialValue="predefined"
-              >
-                <Radio.Group
-                  value={dateRangeType}
-                  onChange={(e) => setDateRangeType(e.target.value)}
-                  size="large"
-                >
-                  <Radio.Button value="predefined">Predefined</Radio.Button>
-                  <Radio.Button value="custom">Custom Range</Radio.Button>
-                </Radio.Group>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={[16, 0]}>
-            {dateRangeType === "predefined" ? (
+          <Form form={form} layout="vertical" onFinish={handleSubmit}>
+            <Row gutter={[16, 0]}>
               <Col xs={24} md={12}>
                 <Form.Item
-                  label="Duration"
-                  name="duration"
+                  label="Customer"
+                  name="customerId"
                   rules={[
-                    { required: true, message: "Please select duration" },
+                    { required: true, message: "Please select a customer" },
                   ]}
-                  initialValue="1month"
                 >
-                  <Select size="large" onChange={handleDurationChange}>
-                    <Select.Option value="1week">1 Week</Select.Option>
-                    <Select.Option value="2weeks">2 Weeks</Select.Option>
-                    <Select.Option value="1month">1 Month</Select.Option>
-                    <Select.Option value="3months">3 Months</Select.Option>
-                    <Select.Option value="6months">6 Months</Select.Option>
-                    <Select.Option value="1year">1 Year</Select.Option>
-                  </Select>
+                  <Select
+                    placeholder="Select a customer"
+                    size="large"
+                    loading={loadingCustomers}
+                    showSearch
+                    optionFilterProp="children"
+                    onChange={handleCustomerChange}
+                    filterOption={(input, option) =>
+                      (option?.label ?? "")
+                        .toLowerCase()
+                        .includes(input.toLowerCase())
+                    }
+                    options={customers.map((customer) => ({
+                      value: customer.id,
+                      label: customer.company
+                        ? `${customer.name} (${customer.company})`
+                        : customer.name,
+                    }))}
+                  />
                 </Form.Item>
               </Col>
-            ) : (
-              <>
-                <Col xs={24} md={12}>
-                  <Form.Item
-                    label="Start Date"
-                    name="startDate"
-                    rules={[
-                      { required: true, message: "Please select start date" },
-                    ]}
-                  >
-                    <DatePicker size="large" style={{ width: "100%" }} />
-                  </Form.Item>
-                </Col>
-                <Col xs={24} md={12}>
-                  <Form.Item
-                    label="End Date"
-                    name="endDate"
-                    rules={[
-                      { required: true, message: "Please select end date" },
-                    ]}
-                  >
-                    <DatePicker size="large" style={{ width: "100%" }} />
-                  </Form.Item>
-                </Col>
-              </>
-            )}
-          </Row>
 
-          <Row gutter={[16, 0]}>
-            <Col xs={24} md={12}>
-              <Form.Item
-                label="Issue Date"
-                name="issueDate"
-                initialValue={dayjs()}
-              >
-                <DatePicker size="large" style={{ width: "100%" }} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={12}>
-              <Form.Item
-                label="Due Date"
-                name="dueDate"
-                initialValue={dayjs().add(30, "day")}
-              >
-                <DatePicker size="large" style={{ width: "100%" }} />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Divider>
-            <Space>
-              <ProjectOutlined />
-              <Text>Projects (Optional)</Text>
-            </Space>
-          </Divider>
-
-          {projectConfigs.length > 0 && (
-            <Space
-              direction="vertical"
-              style={{ width: "100%", marginBottom: 16 }}
-            >
-              {projectConfigs.map((projectConfig) => (
-                <Card
-                  key={projectConfig.key}
-                  size="small"
-                  title={
-                    <Space>
-                      <ProjectOutlined />
-                      <Text strong>{projectConfig.projectName}</Text>
-                    </Space>
-                  }
-                  extra={
-                    <Button
-                      type="text"
-                      danger
-                      size="small"
-                      icon={<DeleteOutlined />}
-                      onClick={() => handleRemoveProject(projectConfig.key)}
-                    >
-                      Remove
-                    </Button>
-                  }
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="Date Range Type"
+                  name="dateRangeType"
+                  initialValue="predefined"
                 >
-                  <Row gutter={[16, 16]}>
-                    <Col xs={24} md={24}>
-                      {projectConfig.timeSummary && (
-                        <Spin spinning={projectConfig.loading}>
-                          <Space direction="vertical" style={{ width: "100%" }}>
-                            <Text type="secondary">Time Summary</Text>
-                            <Alert
-                              message={
-                                <Space
-                                  direction="vertical"
-                                  style={{ width: "100%" }}
-                                >
-                                  {projectConfig.timeSummary.memberBreakdown.map(
-                                    (member) => {
-                                      const rate = member.effectiveRate ?? 0;
-                                      return (
-                                        <Row
-                                          key={member.userId}
-                                          justify="space-between"
-                                        >
-                                          <Col>
-                                            <Space
-                                              direction="vertical"
-                                              size={0}
-                                            >
-                                              <Text>• {member.userName}:</Text>
-                                              {member.effectiveRate && (
+                  <Radio.Group
+                    value={dateRangeType}
+                    onChange={(e) => setDateRangeType(e.target.value)}
+                    size="large"
+                  >
+                    <Radio.Button value="predefined">Predefined</Radio.Button>
+                    <Radio.Button value="custom">Custom Range</Radio.Button>
+                  </Radio.Group>
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Row gutter={[16, 0]}>
+              {dateRangeType === "predefined" ? (
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    label="Duration"
+                    name="duration"
+                    rules={[
+                      { required: true, message: "Please select duration" },
+                    ]}
+                    initialValue="1month"
+                  >
+                    <Select size="large" onChange={handleDurationChange}>
+                      <Select.Option value="1week">1 Week</Select.Option>
+                      <Select.Option value="2weeks">2 Weeks</Select.Option>
+                      <Select.Option value="1month">1 Month</Select.Option>
+                      <Select.Option value="3months">3 Months</Select.Option>
+                      <Select.Option value="6months">6 Months</Select.Option>
+                      <Select.Option value="1year">1 Year</Select.Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+              ) : (
+                <>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="Start Date"
+                      name="startDate"
+                      rules={[
+                        { required: true, message: "Please select start date" },
+                      ]}
+                    >
+                      <DatePicker size="large" style={{ width: "100%" }} />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label="End Date"
+                      name="endDate"
+                      rules={[
+                        { required: true, message: "Please select end date" },
+                      ]}
+                    >
+                      <DatePicker size="large" style={{ width: "100%" }} />
+                    </Form.Item>
+                  </Col>
+                </>
+              )}
+            </Row>
+
+            <Row gutter={[16, 0]}>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="Issue Date"
+                  name="issueDate"
+                  initialValue={dayjs()}
+                >
+                  <DatePicker size="large" style={{ width: "100%" }} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="Due Date"
+                  name="dueDate"
+                  initialValue={dayjs().add(30, "day")}
+                >
+                  <DatePicker size="large" style={{ width: "100%" }} />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Divider>
+              <Space>
+                <ProjectOutlined />
+                <Text>Projects (Optional)</Text>
+              </Space>
+            </Divider>
+
+            {projectConfigs.length > 0 && (
+              <Space
+                direction="vertical"
+                style={{ width: "100%", marginBottom: 16 }}
+              >
+                {projectConfigs.map((projectConfig) => (
+                  <Card
+                    key={projectConfig.key}
+                    size="small"
+                    title={
+                      <Space>
+                        <ProjectOutlined />
+                        <Text strong>{projectConfig.projectName}</Text>
+                      </Space>
+                    }
+                    extra={
+                      <Button
+                        type="text"
+                        danger
+                        size="small"
+                        icon={<DeleteOutlined />}
+                        onClick={() => handleRemoveProject(projectConfig.key)}
+                      >
+                        Remove
+                      </Button>
+                    }
+                  >
+                    <Row gutter={[16, 16]}>
+                      <Col xs={24} md={24}>
+                        {projectConfig.timeSummary && (
+                          <Spin spinning={projectConfig.loading}>
+                            <Space
+                              direction="vertical"
+                              style={{ width: "100%" }}
+                            >
+                              <Text type="secondary">Time Summary</Text>
+                              <Alert
+                                message={
+                                  <Space
+                                    direction="vertical"
+                                    style={{ width: "100%" }}
+                                  >
+                                    {projectConfig.timeSummary.memberBreakdown.map(
+                                      (member) => {
+                                        const rate = member.effectiveRate ?? 0;
+                                        return (
+                                          <Row
+                                            key={member.userId}
+                                            justify="space-between"
+                                          >
+                                            <Col>
+                                              <Space
+                                                direction="vertical"
+                                                size={0}
+                                              >
+                                                <Text>
+                                                  • {member.userName}:
+                                                </Text>
+                                                {member.effectiveRate && (
+                                                  <Text
+                                                    type="secondary"
+                                                    style={{ fontSize: 11 }}
+                                                  >
+                                                    @ ${member.effectiveRate}/hr
+                                                    {member.projectSpecificRate &&
+                                                      " (override)"}
+                                                  </Text>
+                                                )}
+                                              </Space>
+                                            </Col>
+                                            <Col>
+                                              <Space
+                                                direction="vertical"
+                                                size={0}
+                                                align="end"
+                                              >
+                                                <Text strong>
+                                                  {member.hours}h
+                                                </Text>
                                                 <Text
                                                   type="secondary"
                                                   style={{ fontSize: 11 }}
                                                 >
-                                                  @ ${member.effectiveRate}/hr
-                                                  {member.projectSpecificRate &&
-                                                    " (override)"}
+                                                  $
+                                                  {(
+                                                    member.hours * rate
+                                                  ).toFixed(2)}
                                                 </Text>
-                                              )}
-                                            </Space>
-                                          </Col>
-                                          <Col>
-                                            <Space
-                                              direction="vertical"
-                                              size={0}
-                                              align="end"
-                                            >
-                                              <Text strong>
-                                                {member.hours}h
-                                              </Text>
-                                              <Text
-                                                type="secondary"
-                                                style={{ fontSize: 11 }}
-                                              >
-                                                $
-                                                {(member.hours * rate).toFixed(
-                                                  2
-                                                )}
-                                              </Text>
-                                            </Space>
-                                          </Col>
-                                        </Row>
-                                      );
-                                    }
-                                  )}
-                                  <Divider style={{ margin: "8px 0" }} />
-                                  <Row justify="space-between">
-                                    <Col>
-                                      <Text strong>Total:</Text>
-                                    </Col>
-                                    <Col>
-                                      <Text strong>
-                                        {projectConfig.timeSummary.totalHours}h
-                                        = $
-                                        {projectConfig.timeSummary.memberBreakdown
-                                          .reduce((sum, member) => {
-                                            const rate =
-                                              member.effectiveRate ?? 0;
-                                            return sum + member.hours * rate;
-                                          }, 0)
-                                          .toLocaleString("en-US", {
-                                            minimumFractionDigits: 2,
-                                          })}
-                                      </Text>
-                                    </Col>
-                                  </Row>
-                                </Space>
-                              }
-                              type="info"
-                            />
-                          </Space>
-                        </Spin>
-                      )}
-                    </Col>
-                  </Row>
-                </Card>
-              ))}
-            </Space>
-          )}
-
-          <Select
-            placeholder="Add a project..."
-            size="large"
-            loading={loadingProjects}
-            showSearch
-            style={{ width: "100%", marginBottom: 24 }}
-            optionFilterProp="children"
-            value={null}
-            onChange={handleAddProject}
-            filterOption={(input, option) =>
-              (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
-            }
-            options={filteredProjects
-              .filter(
-                (p) => !projectConfigs.some((pc) => pc.projectId === p.id)
-              )
-              .map((project) => ({
-                value: project.id,
-                label: project.name,
-              }))}
-          />
-
-          <Divider>Line Items</Divider>
-
-          <Table
-            dataSource={lineItems}
-            columns={lineItemColumns}
-            pagination={false}
-            size="small"
-            rowKey="key"
-            style={{ marginBottom: 16 }}
-            locale={{
-              emptyText:
-                "No line items. Add manually or select a project with hourly rate.",
-            }}
-          />
-
-          <Button
-            type="dashed"
-            onClick={handleAddLineItem}
-            icon={<PlusOutlined />}
-            style={{ marginBottom: 24, width: isMobile ? "100%" : "auto" }}
-          >
-            Add Manual Line Item
-          </Button>
-
-          <Divider>Tax & Discount</Divider>
-
-          <Row gutter={[16, 16]}>
-            <Col xs={24} md={12}>
-              <Space direction="vertical" style={{ width: "100%" }}>
-                <Text strong>Tax</Text>
-                <Radio.Group
-                  value={taxType}
-                  onChange={(e) => setTaxType(e.target.value)}
-                  style={{ width: "100%" }}
-                >
-                  <Space direction="vertical">
-                    <Radio value="none">No Tax</Radio>
-                    <Radio value="percentage">Percentage</Radio>
-                    <Radio value="fixed">Fixed Amount</Radio>
-                  </Space>
-                </Radio.Group>
-                {(taxType === "percentage" || taxType === "fixed") && (
-                  <InputNumber
-                    value={taxValue}
-                    onChange={(value) => setTaxValue(value || 0)}
-                    min={0}
-                    max={taxType === "percentage" ? 100 : undefined}
-                    step={taxType === "percentage" ? 0.1 : 0.01}
-                    style={{ width: "100%" }}
-                    formatter={(value) =>
-                      taxType === "percentage"
-                        ? `${value}%`
-                        : `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                    }
-                    parser={(value) =>
-                      Number(value!.replace(/[%\$\s,]|(,*)/g, "")) as 0
-                    }
-                    placeholder={
-                      taxType === "percentage"
-                        ? "Enter tax percentage"
-                        : "Enter tax amount"
-                    }
-                  />
-                )}
+                                              </Space>
+                                            </Col>
+                                          </Row>
+                                        );
+                                      }
+                                    )}
+                                    <Divider style={{ margin: "8px 0" }} />
+                                    <Row justify="space-between">
+                                      <Col>
+                                        <Text strong>Total:</Text>
+                                      </Col>
+                                      <Col>
+                                        <Text strong>
+                                          {projectConfig.timeSummary.totalHours}
+                                          h = $
+                                          {projectConfig.timeSummary.memberBreakdown
+                                            .reduce((sum, member) => {
+                                              const rate =
+                                                member.effectiveRate ?? 0;
+                                              return sum + member.hours * rate;
+                                            }, 0)
+                                            .toLocaleString("en-US", {
+                                              minimumFractionDigits: 2,
+                                            })}
+                                        </Text>
+                                      </Col>
+                                    </Row>
+                                  </Space>
+                                }
+                                type="info"
+                              />
+                            </Space>
+                          </Spin>
+                        )}
+                      </Col>
+                    </Row>
+                  </Card>
+                ))}
               </Space>
-            </Col>
-            <Col xs={24} md={12}>
-              <Space direction="vertical" style={{ width: "100%" }}>
-                <Text strong>Discount</Text>
-                <Radio.Group
-                  value={discountType}
-                  onChange={(e) => setDiscountType(e.target.value)}
-                  style={{ width: "100%" }}
-                >
-                  <Space direction="vertical">
-                    <Radio value="none">No Discount</Radio>
-                    <Radio value="percentage">Percentage</Radio>
-                    <Radio value="fixed">Fixed Amount</Radio>
-                  </Space>
-                </Radio.Group>
-                {(discountType === "percentage" ||
-                  discountType === "fixed") && (
-                  <InputNumber
-                    value={discountValue}
-                    onChange={(value) => setDiscountValue(value || 0)}
-                    min={0}
-                    max={discountType === "percentage" ? 100 : undefined}
-                    step={discountType === "percentage" ? 0.1 : 0.01}
-                    style={{ width: "100%" }}
-                    formatter={(value) =>
-                      discountType === "percentage"
-                        ? `${value}%`
-                        : `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                    }
-                    parser={(value) =>
-                      Number(value!.replace(/[%\$\s,]|(,*)/g, "")) as 0
-                    }
-                    placeholder={
-                      discountType === "percentage"
-                        ? "Enter discount percentage"
-                        : "Enter discount amount"
-                    }
-                  />
-                )}
-              </Space>
-            </Col>
-          </Row>
+            )}
 
-          <Divider />
-
-          <Form.Item label="Notes" name="notes">
-            <TextArea
-              rows={3}
-              placeholder="Additional notes for the invoice (optional)"
+            <Select
+              placeholder="Add a project..."
+              size="large"
+              loading={loadingProjects}
+              showSearch
+              style={{ width: "100%", marginBottom: 24 }}
+              optionFilterProp="children"
+              value={null}
+              onChange={handleAddProject}
+              filterOption={(input, option) =>
+                (option?.label ?? "")
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
+              options={filteredProjects
+                .filter(
+                  (p) => !projectConfigs.some((pc) => pc.projectId === p.id)
+                )
+                .map((project) => ({
+                  value: project.id,
+                  label: project.name,
+                }))}
             />
-          </Form.Item>
 
-          <Divider />
+            <Divider>Line Items</Divider>
 
-          <Row justify="end" style={{ marginBottom: 24 }}>
-            <Col xs={24} md={8}>
-              <Space
-                direction="vertical"
-                style={{ width: "100%" }}
-                size="small"
-              >
-                <Row justify="space-between">
-                  <Col>
-                    <Text strong>Subtotal:</Text>
-                  </Col>
-                  <Col>
-                    <Text strong style={{ fontSize: 16 }}>
-                      $
-                      {calculateSubtotal().toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </Text>
-                  </Col>
-                </Row>
-                {taxType !== "none" && (
-                  <Row justify="space-between">
-                    <Col>
-                      <Text>Tax:</Text>
-                    </Col>
-                    <Col>
-                      <Text>
-                        $
-                        {calculateTax().toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                        })}
-                      </Text>
-                    </Col>
-                  </Row>
-                )}
-                {discountType !== "none" && (
-                  <Row justify="space-between">
-                    <Col>
-                      <Text>Discount:</Text>
-                    </Col>
-                    <Col>
-                      <Text style={{ color: "#52c41a" }}>
-                        -$
-                        {calculateDiscount().toLocaleString("en-US", {
-                          minimumFractionDigits: 2,
-                        })}
-                      </Text>
-                    </Col>
-                  </Row>
-                )}
-                <Divider style={{ margin: "8px 0" }} />
-                <Row justify="space-between">
-                  <Col>
-                    <Title level={4} style={{ margin: 0 }}>
-                      Total:
-                    </Title>
-                  </Col>
-                  <Col>
-                    <Title level={4} style={{ margin: 0 }}>
-                      $
-                      {calculateTotal().toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </Title>
-                  </Col>
-                </Row>
-              </Space>
-            </Col>
-          </Row>
+            <Table
+              dataSource={lineItems}
+              columns={lineItemColumns}
+              pagination={false}
+              size="small"
+              rowKey="key"
+              style={{ marginBottom: 16 }}
+              locale={{
+                emptyText:
+                  "No line items. Add manually or select a project with hourly rate.",
+              }}
+            />
 
-          <Form.Item>
-            <Space
-              direction={isMobile ? "vertical" : "horizontal"}
-              style={{ width: isMobile ? "100%" : "auto" }}
+            <Button
+              type="dashed"
+              onClick={handleAddLineItem}
+              icon={<PlusOutlined />}
+              style={{ marginBottom: 24, width: isMobile ? "100%" : "auto" }}
             >
-              <Button
-                type="primary"
-                htmlType="submit"
-                icon={<SaveOutlined />}
-                loading={isLoading}
-                size="large"
-                block={isMobile}
+              Add Manual Line Item
+            </Button>
+
+            <Divider>Tax & Discount</Divider>
+
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={12}>
+                <Space direction="vertical" style={{ width: "100%" }}>
+                  <Text strong>Tax</Text>
+                  <Radio.Group
+                    value={taxType}
+                    onChange={(e) => setTaxType(e.target.value)}
+                    style={{ width: "100%" }}
+                  >
+                    <Space direction="vertical">
+                      <Radio value="none">No Tax</Radio>
+                      <Radio value="percentage">Percentage</Radio>
+                      <Radio value="fixed">Fixed Amount</Radio>
+                    </Space>
+                  </Radio.Group>
+                  {(taxType === "percentage" || taxType === "fixed") && (
+                    <InputNumber
+                      value={taxValue}
+                      onChange={(value) => setTaxValue(value || 0)}
+                      min={0}
+                      max={taxType === "percentage" ? 100 : undefined}
+                      step={taxType === "percentage" ? 0.1 : 0.01}
+                      style={{ width: "100%" }}
+                      formatter={(value) =>
+                        taxType === "percentage"
+                          ? `${value}%`
+                          : `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                      }
+                      parser={(value) =>
+                        Number(value!.replace(/[%\$\s,]|(,*)/g, "")) as 0
+                      }
+                      placeholder={
+                        taxType === "percentage"
+                          ? "Enter tax percentage"
+                          : "Enter tax amount"
+                      }
+                    />
+                  )}
+                </Space>
+              </Col>
+              <Col xs={24} md={12}>
+                <Space direction="vertical" style={{ width: "100%" }}>
+                  <Text strong>Discount</Text>
+                  <Radio.Group
+                    value={discountType}
+                    onChange={(e) => setDiscountType(e.target.value)}
+                    style={{ width: "100%" }}
+                  >
+                    <Space direction="vertical">
+                      <Radio value="none">No Discount</Radio>
+                      <Radio value="percentage">Percentage</Radio>
+                      <Radio value="fixed">Fixed Amount</Radio>
+                    </Space>
+                  </Radio.Group>
+                  {(discountType === "percentage" ||
+                    discountType === "fixed") && (
+                    <InputNumber
+                      value={discountValue}
+                      onChange={(value) => setDiscountValue(value || 0)}
+                      min={0}
+                      max={discountType === "percentage" ? 100 : undefined}
+                      step={discountType === "percentage" ? 0.1 : 0.01}
+                      style={{ width: "100%" }}
+                      formatter={(value) =>
+                        discountType === "percentage"
+                          ? `${value}%`
+                          : `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                      }
+                      parser={(value) =>
+                        Number(value!.replace(/[%\$\s,]|(,*)/g, "")) as 0
+                      }
+                      placeholder={
+                        discountType === "percentage"
+                          ? "Enter discount percentage"
+                          : "Enter discount amount"
+                      }
+                    />
+                  )}
+                </Space>
+              </Col>
+            </Row>
+
+            <Divider />
+
+            <Form.Item label="Notes" name="notes">
+              <TextArea
+                rows={3}
+                placeholder="Additional notes for the invoice (optional)"
+              />
+            </Form.Item>
+
+            <Divider />
+
+            <Row justify="end" style={{ marginBottom: 24 }}>
+              <Col xs={24} md={8}>
+                <Space
+                  direction="vertical"
+                  style={{ width: "100%" }}
+                  size="small"
+                >
+                  <Row justify="space-between">
+                    <Col>
+                      <Text strong>Subtotal:</Text>
+                    </Col>
+                    <Col>
+                      <Text strong style={{ fontSize: 16 }}>
+                        $
+                        {calculateSubtotal().toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </Text>
+                    </Col>
+                  </Row>
+                  {taxType !== "none" && (
+                    <Row justify="space-between">
+                      <Col>
+                        <Text>Tax:</Text>
+                      </Col>
+                      <Col>
+                        <Text>
+                          $
+                          {calculateTax().toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </Text>
+                      </Col>
+                    </Row>
+                  )}
+                  {discountType !== "none" && (
+                    <Row justify="space-between">
+                      <Col>
+                        <Text>Discount:</Text>
+                      </Col>
+                      <Col>
+                        <Text style={{ color: "#52c41a" }}>
+                          -$
+                          {calculateDiscount().toLocaleString("en-US", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </Text>
+                      </Col>
+                    </Row>
+                  )}
+                  <Divider style={{ margin: "8px 0" }} />
+                  <Row justify="space-between">
+                    <Col>
+                      <Title level={4} style={{ margin: 0 }}>
+                        Total:
+                      </Title>
+                    </Col>
+                    <Col>
+                      <Title level={4} style={{ margin: 0 }}>
+                        $
+                        {calculateTotal().toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </Title>
+                    </Col>
+                  </Row>
+                </Space>
+              </Col>
+            </Row>
+
+            <Form.Item>
+              <Space
+                direction={isMobile ? "vertical" : "horizontal"}
+                style={{ width: isMobile ? "100%" : "auto" }}
               >
-                Update Invoice
-              </Button>
-              <Button
-                icon={<CloseOutlined />}
-                onClick={() => navigate(`/tenants/${slug}/financials/invoices/${id}/show`)}
-                size="large"
-                block={isMobile}
-              >
-                Cancel
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Card>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  icon={<SaveOutlined />}
+                  loading={isLoading}
+                  size="large"
+                  block={isMobile}
+                >
+                  Update Invoice
+                </Button>
+                <Button
+                  icon={<CloseOutlined />}
+                  onClick={() =>
+                    navigate(`/tenants/${slug}/financials/invoices/${id}/show`)
+                  }
+                  size="large"
+                  block={isMobile}
+                >
+                  Cancel
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        </Card>
       )}
     </ResponsiveContainer>
   );

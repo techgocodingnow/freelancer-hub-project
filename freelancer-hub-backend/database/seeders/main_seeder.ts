@@ -50,17 +50,17 @@ export default class extends BaseSeeder {
     console.log('\n📋 Seeded Credentials:')
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
     console.log('Tenant: Acme Corp (slug: acme-corp)')
-    console.log('  👤 john@acme-corp.com / Test@123! (Owner)')
-    console.log('  👤 sarah@acme-corp.com / Test@123! (Admin)')
+    console.log('  👤 tech+01@gocodingnow.com / Test@123! (Owner)')
+    console.log('  👤 tech+02@gocodingnow.com / Test@123! (Admin)')
     console.log('')
     console.log('Tenant: Tech Solutions (slug: tech-solutions)')
-    console.log('  👤 jane@tech-solutions.com / Test@123! (Owner)')
-    console.log('  👤 mike@tech-solutions.com / Test@123! (Member)')
-    console.log('  👤 sarah@acme-corp.com / Test@123! (Viewer - Multi-tenant)')
+    console.log('  👤 tech+03@gocodingnow.com / Test@123! (Owner)')
+    console.log('  👤 tech+04@gocodingnow.com / Test@123! (Member)')
+    console.log('  👤 tech+05@gocodingnow.com / Test@123! (Viewer - Multi-tenant)')
     console.log('')
     console.log('Tenant: Design Studio (slug: design-studio)')
-    console.log('  👤 alex@design-studio.com / Test@123! (Owner)')
-    console.log('  👤 john@acme-corp.com / Test@123! (Admin - Multi-tenant)')
+    console.log('  👤 tech+06@gocodingnow.com / Test@123! (Owner)')
+    console.log('  👤 tech+07@gocodingnow.com / Test@123! (Admin - Multi-tenant)')
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   }
 
@@ -113,28 +113,38 @@ export default class extends BaseSeeder {
     // Define users (without tenant association - that comes later)
     const usersData = [
       {
-        fullName: 'John Doe',
-        email: 'john@acme-corp.com',
+        fullName: 'Tech+01',
+        email: 'tech+01@gocodingnow.com',
         password: 'Test@123!',
       },
       {
-        fullName: 'Sarah Johnson',
-        email: 'sarah@acme-corp.com',
+        fullName: 'Tech+02',
+        email: 'tech+02@gocodingnow.com',
         password: 'Test@123!',
       },
       {
         fullName: 'Jane Smith',
-        email: 'jane@tech-solutions.com',
+        email: 'tech+03@gocodingnow.com',
         password: 'Test@123!',
       },
       {
         fullName: 'Mike Wilson',
-        email: 'mike@tech-solutions.com',
+        email: 'tech+04@gocodingnow.com',
         password: 'Test@123!',
       },
       {
         fullName: 'Alex Martinez',
-        email: 'alex@design-studio.com',
+        email: 'tech+05@gocodingnow.com',
+        password: 'Test@123!',
+      },
+      {
+        fullName: 'Tech+06',
+        email: 'tech+06@gocodingnow.com',
+        password: 'Test@123!',
+      },
+      {
+        fullName: 'Tech+07',
+        email: 'tech+07@gocodingnow.com',
         password: 'Test@123!',
       },
     ]
@@ -163,40 +173,40 @@ export default class extends BaseSeeder {
     const tenantUserData = [
       // Acme Corp
       {
-        userEmail: 'john@acme-corp.com',
+        userEmail: 'tech+01@gocodingnow.com',
         tenantSlug: 'acme-corp',
         roleName: 'owner',
       },
       {
-        userEmail: 'sarah@acme-corp.com',
+        userEmail: 'tech+02@gocodingnow.com',
         tenantSlug: 'acme-corp',
         roleName: 'admin',
       },
       // Tech Solutions
       {
-        userEmail: 'jane@tech-solutions.com',
+        userEmail: 'tech+03@gocodingnow.com',
         tenantSlug: 'tech-solutions',
         roleName: 'owner',
       },
       {
-        userEmail: 'mike@tech-solutions.com',
+        userEmail: 'tech+04@gocodingnow.com',
         tenantSlug: 'tech-solutions',
         roleName: 'member',
       },
       // Design Studio
       {
-        userEmail: 'alex@design-studio.com',
+        userEmail: 'tech+05@gocodingnow.com',
         tenantSlug: 'design-studio',
         roleName: 'owner',
       },
       // Multi-tenant users (demonstrating the new capability)
       {
-        userEmail: 'sarah@acme-corp.com',
+        userEmail: 'tech+06@gocodingnow.com',
         tenantSlug: 'tech-solutions',
         roleName: 'viewer',
       },
       {
-        userEmail: 'john@acme-corp.com',
+        userEmail: 'tech+07@gocodingnow.com',
         tenantSlug: 'design-studio',
         roleName: 'admin',
       },
@@ -243,7 +253,7 @@ export default class extends BaseSeeder {
       {
         tenantSlug: 'acme-corp',
         name: 'TechStart Inc',
-        email: 'contact@techstart.com',
+        email: 'tech+customer01@gocodingnow.com',
         phone: '+1 555-0100',
         company: 'TechStart Inc',
         addressLine1: '123 Innovation Drive',
@@ -256,7 +266,7 @@ export default class extends BaseSeeder {
       {
         tenantSlug: 'acme-corp',
         name: 'Global Retail Corp',
-        email: 'projects@globalretail.com',
+        email: 'tech+customer02@gocodingnow.com',
         phone: '+1 555-0200',
         company: 'Global Retail Corp',
         addressLine1: '456 Commerce Street',
@@ -270,7 +280,7 @@ export default class extends BaseSeeder {
       {
         tenantSlug: 'tech-solutions',
         name: 'Healthcare Solutions Ltd',
-        email: 'info@healthcaresolutions.com',
+        email: 'tech+customer03@gocodingnow.com',
         phone: '+1 555-0300',
         company: 'Healthcare Solutions Ltd',
         addressLine1: '789 Medical Plaza',
@@ -284,7 +294,7 @@ export default class extends BaseSeeder {
       {
         tenantSlug: 'design-studio',
         name: 'Bright Future Startup',
-        email: 'hello@brightfuture.io',
+        email: 'tech+customer04@gocodingnow.com',
         phone: '+1 555-0400',
         company: 'Bright Future',
         addressLine1: '321 Startup Lane',
@@ -388,8 +398,8 @@ export default class extends BaseSeeder {
       // Acme Corp projects
       {
         tenantSlug: 'acme-corp',
-        ownerEmail: 'john@acme-corp.com',
-        customerEmail: 'contact@techstart.com',
+        ownerEmail: 'tech+01@gocodingnow.com',
+        customerEmail: 'tech+customer01@gocodingnow.com',
         name: 'Website Redesign',
         description: 'Complete redesign of company website with modern UI/UX',
         status: 'active' as const,
@@ -399,8 +409,8 @@ export default class extends BaseSeeder {
       },
       {
         tenantSlug: 'acme-corp',
-        ownerEmail: 'sarah@acme-corp.com',
-        customerEmail: 'projects@globalretail.com',
+        ownerEmail: 'tech+02@gocodingnow.com',
+        customerEmail: 'tech+customer02@gocodingnow.com',
         name: 'Mobile App Development',
         description: 'Native mobile app for iOS and Android',
         status: 'active' as const,
@@ -411,8 +421,8 @@ export default class extends BaseSeeder {
       // Tech Solutions projects
       {
         tenantSlug: 'tech-solutions',
-        ownerEmail: 'jane@tech-solutions.com',
-        customerEmail: 'info@healthcaresolutions.com',
+        ownerEmail: 'tech+03@gocodingnow.com',
+        customerEmail: 'tech+customer03@gocodingnow.com',
         name: 'CRM System',
         description: 'Custom CRM system for client management',
         status: 'active' as const,
@@ -423,8 +433,8 @@ export default class extends BaseSeeder {
       // Design Studio projects
       {
         tenantSlug: 'design-studio',
-        ownerEmail: 'alex@design-studio.com',
-        customerEmail: 'hello@brightfuture.io',
+        ownerEmail: 'tech+06@gocodingnow.com',
+        customerEmail: 'tech+customer04@gocodingnow.com',
         name: 'Brand Identity',
         description: 'Complete brand identity package for startup',
         status: 'active' as const,
@@ -550,8 +560,8 @@ export default class extends BaseSeeder {
         description: 'Create initial design mockups for the homepage',
         status: 'done' as const,
         priority: 'high' as const,
-        assigneeEmail: 'sarah@acme-corp.com',
-        creatorEmail: 'john@acme-corp.com',
+        assigneeEmail: 'tech+02@gocodingnow.com',
+        creatorEmail: 'tech+01@gocodingnow.com',
         dueDate: DateTime.now().minus({ days: 5 }),
         estimatedHours: 8,
         actualHours: 10,
@@ -563,8 +573,8 @@ export default class extends BaseSeeder {
         description: 'Build reusable React components for the new design',
         status: 'in_progress' as const,
         priority: 'high' as const,
-        assigneeEmail: 'john@acme-corp.com',
-        creatorEmail: 'john@acme-corp.com',
+        assigneeEmail: 'tech+02@gocodingnow.com',
+        creatorEmail: 'tech+01@gocodingnow.com',
         dueDate: DateTime.now().plus({ days: 7 }),
         estimatedHours: 40,
         actualHours: 15,
@@ -576,8 +586,8 @@ export default class extends BaseSeeder {
         description: 'Create comprehensive unit tests for all components',
         status: 'todo' as const,
         priority: 'medium' as const,
-        assigneeEmail: 'sarah@acme-corp.com',
-        creatorEmail: 'john@acme-corp.com',
+        assigneeEmail: 'tech+02@gocodingnow.com',
+        creatorEmail: 'tech+01@gocodingnow.com',
         dueDate: DateTime.now().plus({ days: 14 }),
         estimatedHours: 16,
         actualHours: 0,
@@ -590,8 +600,8 @@ export default class extends BaseSeeder {
         description: 'Initialize React Native project with required dependencies',
         status: 'done' as const,
         priority: 'urgent' as const,
-        assigneeEmail: 'john@acme-corp.com',
-        creatorEmail: 'sarah@acme-corp.com',
+        assigneeEmail: 'tech+02@gocodingnow.com',
+        creatorEmail: 'tech+01@gocodingnow.com',
         dueDate: DateTime.now().minus({ days: 10 }),
         estimatedHours: 4,
         actualHours: 5,
@@ -603,8 +613,8 @@ export default class extends BaseSeeder {
         description: 'Add user authentication with JWT tokens',
         status: 'in_progress' as const,
         priority: 'high' as const,
-        assigneeEmail: 'sarah@acme-corp.com',
-        creatorEmail: 'sarah@acme-corp.com',
+        assigneeEmail: 'tech+02@gocodingnow.com',
+        creatorEmail: 'tech+01@gocodingnow.com',
         dueDate: DateTime.now().plus({ days: 5 }),
         estimatedHours: 20,
         actualHours: 12,
@@ -617,8 +627,8 @@ export default class extends BaseSeeder {
         description: 'Design database schema for CRM system',
         status: 'done' as const,
         priority: 'high' as const,
-        assigneeEmail: 'jane@tech-solutions.com',
-        creatorEmail: 'jane@tech-solutions.com',
+        assigneeEmail: 'tech+03@gocodingnow.com',
+        creatorEmail: 'tech+03@gocodingnow.com',
         dueDate: DateTime.now().minus({ days: 20 }),
         estimatedHours: 12,
         actualHours: 14,
@@ -630,8 +640,8 @@ export default class extends BaseSeeder {
         description: 'Create RESTful API endpoints for CRM operations',
         status: 'review' as const,
         priority: 'high' as const,
-        assigneeEmail: 'mike@tech-solutions.com',
-        creatorEmail: 'jane@tech-solutions.com',
+        assigneeEmail: 'tech+03@gocodingnow.com',
+        creatorEmail: 'tech+03@gocodingnow.com',
         dueDate: DateTime.now().plus({ days: 3 }),
         estimatedHours: 30,
         actualHours: 28,
@@ -685,7 +695,7 @@ export default class extends BaseSeeder {
     const timeEntriesData = [
       {
         taskIndex: 0,
-        userEmail: 'sarah@acme-corp.com',
+        userEmail: 'tech+02@gocodingnow.com',
         description: 'Working on homepage design',
         durationMinutes: 240,
         date: DateTime.now().minus({ days: 6 }),
@@ -693,7 +703,7 @@ export default class extends BaseSeeder {
       },
       {
         taskIndex: 0,
-        userEmail: 'sarah@acme-corp.com',
+        userEmail: 'tech+02@gocodingnow.com',
         description: 'Finalizing mockups',
         durationMinutes: 360,
         date: DateTime.now().minus({ days: 5 }),
@@ -701,7 +711,7 @@ export default class extends BaseSeeder {
       },
       {
         taskIndex: 1,
-        userEmail: 'john@acme-corp.com',
+        userEmail: 'tech+02@gocodingnow.com',
         description: 'Building React components',
         durationMinutes: 480,
         date: DateTime.now().minus({ days: 3 }),
@@ -709,7 +719,7 @@ export default class extends BaseSeeder {
       },
       {
         taskIndex: 1,
-        userEmail: 'john@acme-corp.com',
+        userEmail: 'tech+02@gocodingnow.com',
         description: 'Component development continues',
         durationMinutes: 420,
         date: DateTime.now().minus({ days: 1 }),
@@ -717,7 +727,7 @@ export default class extends BaseSeeder {
       },
       {
         taskIndex: 4,
-        userEmail: 'sarah@acme-corp.com',
+        userEmail: 'tech+02@gocodingnow.com',
         description: 'Implementing JWT authentication',
         durationMinutes: 360,
         date: DateTime.now().minus({ days: 2 }),

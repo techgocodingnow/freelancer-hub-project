@@ -5,6 +5,7 @@ import Invitation from '#models/invitation'
 import { DateTime } from 'luxon'
 import env from '#start/env'
 import { Resend } from 'resend'
+import storageService from '#services/storage_service'
 
 /**
  * Email Service for sending invoices, receipts, and notifications using Resend
@@ -17,7 +18,8 @@ export interface EmailOptions {
   html: string
   attachments?: Array<{
     filename: string
-    path: string
+    path?: string
+    content?: any
   }>
 }
 
@@ -35,8 +37,8 @@ export class EmailService {
   private resend: Resend | null
 
   constructor() {
-    this.fromEmail = env.get('EMAIL_FROM', 'noreply@gocodingnow.com')
-    this.fromName = env.get('EMAIL_FROM_NAME', 'Freelancer Hub')
+    this.fromEmail = env.get('EMAIL_FROM')
+    this.fromName = env.get('EMAIL_FROM_NAME')
 
     const apiKey = env.get('RESEND_API_KEY')
     this.resend = apiKey ? new Resend(apiKey) : null
@@ -84,10 +86,7 @@ export class EmailService {
         cc: options.cc && options.cc.length > 0 ? options.cc : undefined,
         subject: options.subject,
         html: options.html,
-        attachments: options.attachments?.map((att) => ({
-          filename: att.filename,
-          path: att.path,
-        })),
+        attachments: options.attachments,
       })
       return true
     } catch (error) {
@@ -105,12 +104,27 @@ export class EmailService {
   }
 
   /**
+   * Escape HTML special characters to prevent XSS
+   */
+  private escapeHtml(text: string): string {
+    const map: Record<string, string> = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;',
+    }
+    return text.replace(/[&<>"']/g, (m) => map[m])
+  }
+
+  /**
    * Send invoice email with CC support and custom content
    */
   async sendInvoiceEmail(options: SendInvoiceEmailOptions): Promise<boolean> {
     const { invoice, to, cc = [], subject, message } = options
 
-    await invoice.load('user', 'tenant')
+    await invoice.load('user')
+    await invoice.load('tenant')
 
     // Use custom subject or default
     const defaultSubject = `Invoice ${invoice.invoiceNumber} from ${invoice.tenant?.name || 'Freelancer Hub'}`
@@ -119,19 +133,26 @@ export class EmailService {
     // Generate HTML with custom message if provided
     const html = this.generateInvoiceEmailHTML(invoice, message)
 
+    let attachments: Array<{ filename: string; content: any }> | undefined
+
+    // Handle PDF attachment from B2 storage
+    if (invoice.pdfKey && storageService.isConfigured()) {
+      // Download PDF from B2 to temporary file
+      const pdfBuffer = await storageService.downloadPDF(invoice.pdfKey)
+      attachments = [
+        {
+          filename: `invoice-${invoice.invoiceNumber}.pdf`,
+          content: pdfBuffer,
+        },
+      ]
+    }
+
     const sent = await this.sendEmail({
       to,
       cc: cc.length > 0 ? cc : undefined,
       subject: emailSubject,
       html,
-      attachments: invoice.pdfUrl
-        ? [
-            {
-              filename: `invoice-${invoice.invoiceNumber}.pdf`,
-              path: invoice.pdfUrl,
-            },
-          ]
-        : undefined,
+      attachments,
     })
 
     if (sent) {
@@ -151,10 +172,9 @@ export class EmailService {
    */
   async sendPaymentConfirmation(payment: Payment): Promise<boolean> {
     await payment.load('invoice')
-    await payment.load('user')
     await payment.load('tenant')
 
-    const to = payment.user?.email
+    const to = payment.invoice.user?.email
     if (!to) {
       throw new Error('No recipient email address found')
     }
@@ -173,16 +193,15 @@ export class EmailService {
    * Send payroll notification email
    */
   async sendPayrollNotification(batch: PayrollBatch, userId: number): Promise<boolean> {
-    await batch.load('payments', 'tenant')
+    await batch.load('payments')
+    await batch.load('tenant')
 
-    const payment = batch.payments?.find((p) => p.userId === userId)
+    const payment = batch.payments?.find((p) => p.invoice?.userId === userId)
     if (!payment) {
       throw new Error('Payment not found for user')
     }
 
-    await payment.load('user')
-
-    const to = payment.user?.email
+    const to = payment.invoice.user?.email
     if (!to) {
       throw new Error('No recipient email address found')
     }
@@ -201,7 +220,10 @@ export class EmailService {
    * Send invitation email
    */
   async sendInvitationEmail(invitation: Invitation, baseUrl: string): Promise<boolean> {
-    await invitation.load('tenant', 'role', 'inviter', 'project')
+    await invitation.load('tenant')
+    await invitation.load('role')
+    await invitation.load('inviter')
+    await invitation.load('project')
 
     const to = invitation.email
     const tenantName = invitation.tenant?.name || 'Freelancer Hub'
@@ -233,6 +255,14 @@ export class EmailService {
    * Generate invoice email HTML
    */
   private generateInvoiceEmailHTML(invoice: Invoice, customMessage?: string): string {
+    // Escape all user-controlled content
+    const tenantName = this.escapeHtml(invoice.tenant?.name || 'Freelancer Hub')
+    const clientName = this.escapeHtml(invoice.clientName || invoice.user?.fullName || 'there')
+    const invoiceNumber = this.escapeHtml(invoice.invoiceNumber)
+    const currency = this.escapeHtml(invoice.currency)
+    const paymentTerms = this.escapeHtml(invoice.paymentTerms || 'Net 30')
+    const escapedCustomMessage = customMessage ? this.escapeHtml(customMessage) : undefined
+
     return `
 <!DOCTYPE html>
 <html>
@@ -252,21 +282,21 @@ export class EmailService {
 <body>
   <div class="container">
     <div class="header">
-      <h1>Invoice from ${invoice.tenant?.name || 'Freelancer Hub'}</h1>
+      <h1>Invoice from ${tenantName}</h1>
     </div>
 
     <div class="content">
-      <p>Hello ${invoice.clientName || invoice.user?.fullName || 'there'},</p>
+      <p>Hello ${clientName},</p>
 
-      ${customMessage ? `<div class="custom-message">${customMessage}</div>` : '<p>Please find attached your invoice for services rendered.</p>'}
+      ${escapedCustomMessage ? `<div class="custom-message">${escapedCustomMessage}</div>` : '<p>Please find attached your invoice for services rendered.</p>'}
 
       <div class="invoice-details">
         <h2>Invoice Details</h2>
-        <p><strong>Invoice Number:</strong> ${invoice.invoiceNumber}</p>
+        <p><strong>Invoice Number:</strong> ${invoiceNumber}</p>
         <p><strong>Issue Date:</strong> ${invoice.issueDate.toFormat('MMM dd, yyyy')}</p>
         <p><strong>Due Date:</strong> ${invoice.dueDate.toFormat('MMM dd, yyyy')}</p>
-        <p><strong>Amount Due:</strong> $${(invoice.totalAmount - invoice.amountPaid).toFixed(2)} ${invoice.currency}</p>
-        <p><strong>Payment Terms:</strong> ${invoice.paymentTerms || 'Net 30'}</p>
+        <p><strong>Amount Due:</strong> $${(invoice.totalAmount - invoice.amountPaid).toFixed(2)} ${currency}</p>
+        <p><strong>Payment Terms:</strong> ${paymentTerms}</p>
       </div>
 
       ${invoice.pdfUrl ? '<p>The invoice is attached as a PDF to this email.</p>' : ''}
@@ -277,7 +307,7 @@ export class EmailService {
     </div>
 
     <div class="footer">
-      <p>${invoice.tenant?.name || 'Freelancer Hub'}</p>
+      <p>${tenantName}</p>
       <p>This is an automated email. Please do not reply to this message.</p>
     </div>
   </div>
@@ -290,6 +320,14 @@ export class EmailService {
    * Generate payment confirmation email HTML
    */
   private generatePaymentConfirmationHTML(payment: Payment): string {
+    // Escape all user-controlled content
+    const userName = this.escapeHtml(payment.user?.fullName || 'there')
+    const paymentNumber = this.escapeHtml(payment.paymentNumber)
+    const currency = this.escapeHtml(payment.currency)
+    const paymentMethod = this.escapeHtml(payment.paymentMethod.toUpperCase())
+    const transactionId = payment.transactionId ? this.escapeHtml(payment.transactionId) : undefined
+    const tenantName = this.escapeHtml(payment.tenant?.name || 'Freelancer Hub')
+
     return `
 <!DOCTYPE html>
 <html>
@@ -307,30 +345,30 @@ export class EmailService {
 <body>
   <div class="container">
     <div class="header">
-      <h1>✓ Payment Received</h1>
+      <h1>Payment Received</h1>
     </div>
-    
+
     <div class="content">
-      <p>Hello ${payment.user?.fullName || 'there'},</p>
-      
+      <p>Hello ${userName},</p>
+
       <p>We have received your payment. Thank you!</p>
-      
+
       <div class="payment-details">
         <h2>Payment Details</h2>
-        <p><strong>Payment Number:</strong> ${payment.paymentNumber}</p>
+        <p><strong>Payment Number:</strong> ${paymentNumber}</p>
         <p><strong>Payment Date:</strong> ${payment.paymentDate.toFormat('MMM dd, yyyy')}</p>
-        <p><strong>Amount:</strong> $${payment.amount.toFixed(2)} ${payment.currency}</p>
-        <p><strong>Payment Method:</strong> ${payment.paymentMethod.toUpperCase()}</p>
-        ${payment.transactionId ? `<p><strong>Transaction ID:</strong> ${payment.transactionId}</p>` : ''}
+        <p><strong>Amount:</strong> $${payment.amount.toFixed(2)} ${currency}</p>
+        <p><strong>Payment Method:</strong> ${paymentMethod}</p>
+        ${transactionId ? `<p><strong>Transaction ID:</strong> ${transactionId}</p>` : ''}
       </div>
-      
+
       <p>A receipt has been generated for your records.</p>
-      
+
       <p>Thank you for your business!</p>
     </div>
-    
+
     <div class="footer">
-      <p>${payment.tenant?.name || 'Freelancer Hub'}</p>
+      <p>${tenantName}</p>
       <p>This is an automated email. Please do not reply to this message.</p>
     </div>
   </div>
@@ -343,6 +381,15 @@ export class EmailService {
    * Generate payroll notification email HTML
    */
   private generatePayrollNotificationHTML(batch: PayrollBatch, payment: Payment): string {
+    // Escape all user-controlled content
+    const userName = this.escapeHtml(payment.user?.fullName || 'there')
+    const batchNumber = this.escapeHtml(batch.batchNumber)
+    const paymentNumber = this.escapeHtml(payment.paymentNumber)
+    const currency = this.escapeHtml(payment.currency)
+    const paymentMethod = this.escapeHtml(payment.paymentMethod.toUpperCase())
+    const status = this.escapeHtml(payment.status.toUpperCase())
+    const tenantName = this.escapeHtml(batch.tenant?.name || 'Freelancer Hub')
+
     return `
 <!DOCTYPE html>
 <html>
@@ -362,29 +409,29 @@ export class EmailService {
     <div class="header">
       <h1>Payroll Payment Notification</h1>
     </div>
-    
+
     <div class="content">
-      <p>Hello ${payment.user?.fullName || 'there'},</p>
-      
+      <p>Hello ${userName},</p>
+
       <p>Your payroll payment has been processed.</p>
-      
+
       <div class="payroll-details">
         <h2>Payment Details</h2>
-        <p><strong>Batch Number:</strong> ${batch.batchNumber}</p>
+        <p><strong>Batch Number:</strong> ${batchNumber}</p>
         <p><strong>Pay Period:</strong> ${batch.payPeriodStart.toFormat('MMM dd')} - ${batch.payPeriodEnd.toFormat('MMM dd, yyyy')}</p>
-        <p><strong>Payment Number:</strong> ${payment.paymentNumber}</p>
-        <p><strong>Amount:</strong> $${payment.amount.toFixed(2)} ${payment.currency}</p>
-        <p><strong>Payment Method:</strong> ${payment.paymentMethod.toUpperCase()}</p>
-        <p><strong>Status:</strong> ${payment.status.toUpperCase()}</p>
+        <p><strong>Payment Number:</strong> ${paymentNumber}</p>
+        <p><strong>Amount:</strong> $${payment.amount.toFixed(2)} ${currency}</p>
+        <p><strong>Payment Method:</strong> ${paymentMethod}</p>
+        <p><strong>Status:</strong> ${status}</p>
       </div>
-      
+
       <p>The payment will be processed according to your payment method.</p>
-      
+
       <p>If you have any questions, please contact your administrator.</p>
     </div>
-    
+
     <div class="footer">
-      <p>${batch.tenant?.name || 'Freelancer Hub'}</p>
+      <p>${tenantName}</p>
       <p>This is an automated email. Please do not reply to this message.</p>
     </div>
   </div>
@@ -407,13 +454,20 @@ export class EmailService {
     const registrationUrl = invitation.getRegistrationUrl(baseUrl)
     const expiresAt = invitation.expiresAt.toFormat('MMM dd, yyyy')
 
+    // Escape all user-controlled content
+    const escapedTenantName = this.escapeHtml(tenantName)
+    const escapedInviterName = this.escapeHtml(inviterName)
+    const escapedRoleName = this.escapeHtml(roleName)
+    const escapedProjectName = projectName ? this.escapeHtml(projectName) : undefined
+    const escapedRegistrationUrl = this.escapeHtml(registrationUrl)
+
     return `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Invitation to ${tenantName}</title>
+  <title>Invitation to ${escapedTenantName}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
     .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -431,20 +485,20 @@ export class EmailService {
 <body>
   <div class="container">
     <div class="header">
-      <h1>🎉 You're Invited!</h1>
+      <h1>You're Invited!</h1>
     </div>
 
     <div class="content">
       <p>Hello,</p>
 
-      <p><strong>${inviterName}</strong> has invited you to join ${projectName ? `the project <strong>${projectName}</strong> on` : ''} <strong>${tenantName}</strong> as a <strong>${roleName}</strong>.</p>
+      <p><strong>${escapedInviterName}</strong> has invited you to join ${escapedProjectName ? `the project <strong>${escapedProjectName}</strong> on` : ''} <strong>${escapedTenantName}</strong> as a <strong>${escapedRoleName}</strong>.</p>
 
       <div class="invitation-details">
         <h2 style="margin-top: 0; font-size: 18px;">Invitation Details</h2>
-        <p><strong>Organization:</strong> ${tenantName}</p>
-        ${projectName ? `<p><strong>Project:</strong> ${projectName}</p>` : ''}
-        <p><strong>Role:</strong> ${roleName.charAt(0).toUpperCase() + roleName.slice(1)}</p>
-        <p><strong>Invited by:</strong> ${inviterName}</p>
+        <p><strong>Organization:</strong> ${escapedTenantName}</p>
+        ${escapedProjectName ? `<p><strong>Project:</strong> ${escapedProjectName}</p>` : ''}
+        <p><strong>Role:</strong> ${escapedRoleName.charAt(0).toUpperCase() + escapedRoleName.slice(1)}</p>
+        <p><strong>Invited by:</strong> ${escapedInviterName}</p>
         <p><strong>Expires:</strong> ${expiresAt}</p>
       </div>
 
@@ -455,17 +509,17 @@ export class EmailService {
       </div>
 
       <div class="warning">
-        <strong>⚠️ Important:</strong> This invitation link will expire on ${expiresAt}. Please complete your registration before this date.
+        <strong>Important:</strong> This invitation link will expire on ${expiresAt}. Please complete your registration before this date.
       </div>
 
       <p>If you're unable to click the button, copy and paste this link into your browser:</p>
-      <p style="word-break: break-all; color: #667eea;">${registrationUrl}</p>
+      <p style="word-break: break-all; color: #667eea;">${escapedRegistrationUrl}</p>
 
       <p>If you weren't expecting this invitation or believe it was sent in error, you can safely ignore this email.</p>
     </div>
 
     <div class="footer">
-      <p>${tenantName}</p>
+      <p>${escapedTenantName}</p>
       <p>This is an automated email. Please do not reply to this message.</p>
     </div>
   </div>

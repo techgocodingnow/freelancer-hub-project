@@ -43,8 +43,19 @@ export default await Env.create(new URL('../', import.meta.url), {
   | Variables for configuring email service (Resend)
   |----------------------------------------------------------
   */
-  RESEND_API_KEY: Env.schema.string.optional(),
-  EMAIL_FROM: Env.schema.string.optional(),
-  EMAIL_FROM_NAME: Env.schema.string.optional(),
+  RESEND_API_KEY: Env.schema.string(),
+  EMAIL_FROM: Env.schema.string(),
+  EMAIL_FROM_NAME: Env.schema.string(),
   FRONTEND_URL: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | Variables for configuring Backblaze B2 storage
+  |----------------------------------------------------------
+  */
+  B2_ENDPOINT: Env.schema.string.optional(),
+  B2_REGION: Env.schema.string.optional(),
+  B2_ACCESS_KEY_ID: Env.schema.string.optional(),
+  B2_SECRET_ACCESS_KEY: Env.schema.string.optional(),
+  B2_BUCKET_NAME: Env.schema.string.optional(),
 })

@@ -2087,6 +2087,272 @@ async sendInvoiceEmail(options: SendInvoiceEmailOptions): Promise<boolean> {
 - Always validate emails before sending to avoid API errors
 - Email validation must happen in `sendEmail` to catch all cases (don't duplicate in higher-level methods)
 
+### Backblaze B2 Storage Integration
+
+When implementing file storage with Backblaze B2's S3-compatible API for invoice PDFs:
+
+**1. Environment Configuration:**
+
+Add B2 credentials to `start/env.ts`:
+
+```typescript
+B2_ENDPOINT: Env.schema.string.optional(),
+B2_REGION: Env.schema.string.optional(),
+B2_ACCESS_KEY_ID: Env.schema.string.optional(),
+B2_SECRET_ACCESS_KEY: Env.schema.string.optional(),
+B2_BUCKET_NAME: Env.schema.string.optional(),
+```
+
+Update `.env.example` with documentation:
+
+```env
+# Backblaze B2 Storage Configuration (S3-compatible)
+# Get credentials from: https://secure.backblaze.com/app_keys.htm
+# Endpoint format: https://s3.{region}.backblazeb2.com
+B2_ENDPOINT=https://s3.us-west-004.backblazeb2.com
+B2_REGION=us-west-004
+B2_ACCESS_KEY_ID=your_key_id_here
+B2_SECRET_ACCESS_KEY=your_secret_key_here
+B2_BUCKET_NAME=freelancer-hub-invoices
+```
+
+**2. Storage Service Implementation:**
+
+Use AWS SDK v3 S3 client configured for B2:
+
+```typescript
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+
+export class StorageService {
+  private client: S3Client | null
+
+  constructor() {
+    const endpoint = env.get('B2_ENDPOINT')
+    const region = env.get('B2_REGION')
+    const accessKeyId = env.get('B2_ACCESS_KEY_ID')
+    const secretAccessKey = env.get('B2_SECRET_ACCESS_KEY')
+
+    if (endpoint && region && accessKeyId && secretAccessKey) {
+      this.client = new S3Client({
+        endpoint,
+        region,
+        credentials: { accessKeyId, secretAccessKey },
+      })
+    } else {
+      this.client = null
+    }
+  }
+
+  isConfigured(): boolean {
+    return this.client !== null
+  }
+
+  async uploadInvoicePDF(
+    tenantId: number,
+    invoiceNumber: string,
+    pdfBuffer: Buffer
+  ): Promise<string> {
+    const objectKey = `invoices/${tenantId}/${invoiceNumber}.pdf`
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: objectKey,
+      Body: pdfBuffer,
+      ContentType: 'application/pdf',
+      Metadata: {
+        tenantId: String(tenantId),
+        invoiceNumber,
+        uploadedAt: new Date().toISOString(),
+      },
+    })
+    await this.client!.send(command)
+    return objectKey
+  }
+}
+```
+
+**3. PDF Service Integration:**
+
+```typescript
+async generateAndStoreInvoicePDF(invoice: Invoice): Promise<string> {
+  const pdfBuffer = await this.generateInvoicePDF(invoice)
+
+  if (storageService.isConfigured()) {
+    const objectKey = await storageService.uploadInvoicePDF(
+      invoice.tenantId,
+      invoice.invoiceNumber,
+      pdfBuffer
+    )
+
+    invoice.pdfKey = objectKey
+    await invoice.save()
+
+    return objectKey
+  } else {
+    console.log(
+      `📄 PDF generated for invoice ${invoice.invoiceNumber} but B2 storage not configured`
+    )
+    return ''
+  }
+}
+
+async getInvoicePDFUrl(invoice: Invoice, expiresIn: number = 86400): Promise<string> {
+  if (!invoice.pdfKey && storageService.isConfigured()) {
+    await this.generateAndStoreInvoicePDF(invoice)
+  }
+
+  if (invoice.pdfKey && storageService.isConfigured()) {
+    return await storageService.getPresignedUrl(invoice.pdfKey, expiresIn)
+  }
+
+  return ''
+}
+```
+
+**4. Email Service with B2 Attachments:**
+
+For email attachments, download B2 files to temporary location:
+
+```typescript
+async sendInvoiceEmail(options: SendInvoiceEmailOptions): Promise<boolean> {
+  let tempFilePath: string | null = null
+  let attachments: Array<{ filename: string; path: string }> | undefined
+
+  try {
+    // Download PDF from B2 to temporary file for email attachment
+    if (invoice.pdfKey && storageService.isConfigured()) {
+      const pdfBuffer = await storageService.downloadPDF(invoice.pdfKey)
+
+      tempFilePath = join(tmpdir(), `invoice-${invoice.invoiceNumber}-${Date.now()}.pdf`)
+      await writeFile(tempFilePath, pdfBuffer)
+
+      attachments = [
+        {
+          filename: `invoice-${invoice.invoiceNumber}.pdf`,
+          path: tempFilePath,
+        },
+      ]
+    }
+
+    const sent = await this.sendEmail({
+      to,
+      subject: emailSubject,
+      html,
+      attachments,
+    })
+
+    return sent
+  } finally {
+    // Clean up temporary file
+    if (tempFilePath) {
+      try {
+        await unlink(tempFilePath)
+      } catch (error) {
+        console.error('Failed to delete temporary PDF file:', error)
+      }
+    }
+  }
+}
+```
+
+**5. Database Schema:**
+
+Add `pdf_key` column to store the S3 object key:
+
+```typescript
+// Migration
+this.schema.alterTable('invoices', (table) => {
+  table.string('pdf_key').nullable().comment('S3 object key for stored PDF in B2 storage')
+})
+
+// Model
+@column()
+declare pdfKey: string | null
+```
+
+**6. Controller Updates:**
+
+```typescript
+async generatePdf({ tenant, userRole, params, response }: HttpContext) {
+  const invoice = await Invoice.query()
+    .where('id', params.id)
+    .where('tenant_id', tenant.id)
+    .firstOrFail()
+
+  // Generate and store PDF in B2 if configured
+  await pdfService.generateAndStoreInvoicePDF(invoice)
+
+  // Generate PDF buffer for direct response
+  const pdfBuffer = await pdfService.generateInvoicePDF(invoice)
+
+  response.header('Content-Type', 'application/pdf')
+  response.header('Content-Disposition', `attachment; filename="invoice-${invoice.invoiceNumber}.pdf"`)
+
+  return response.send(pdfBuffer)
+}
+
+async send({ tenant, userRole, params, request, response }: HttpContext) {
+  const invoice = await Invoice.query()
+    .where('id', params.id)
+    .where('tenant_id', tenant.id)
+    .firstOrFail()
+
+  // Ensure PDF is stored before sending email
+  if (!invoice.pdfKey) {
+    await pdfService.generateAndStoreInvoicePDF(invoice)
+  }
+
+  await emailService.sendInvoiceEmail({
+    invoice,
+    to: data.email,
+    cc: data.ccEmails,
+    subject: data.subject,
+    message: data.message,
+  })
+
+  return response.ok({ data: invoice, message: 'Invoice sent successfully' })
+}
+```
+
+**Key Patterns:**
+
+- **Storage Path**: `invoices/{tenant_id}/{invoice_number}.pdf`
+- **Presigned URLs**: Use for temporary access (default 24 hours)
+- **Graceful Fallback**: System works without B2 configured (logs to console)
+- **Temporary Files**: Download from B2 to temp directory for email attachments, always clean up
+- **Object Key**: Store separately from full URL for flexibility
+
+**Important Gotchas:**
+
+1. **AWS SDK Configuration**: B2 uses S3-compatible API but requires explicit `endpoint` configuration
+2. **Stream Handling**: When downloading from B2, response.Body is an async iterable that must be converted to Buffer
+3. **Temporary File Cleanup**: Always use `try/finally` to ensure temp files are deleted even on error
+4. **Resend Attachments**: Resend's attachment API expects file paths, not URLs or buffers, hence the temporary file approach
+5. **Optional Configuration**: All B2 env vars are optional - check `isConfigured()` before operations
+6. **Metadata**: Include tenant and invoice metadata for debugging and lifecycle management
+7. **Content Type**: Always set `ContentType: 'application/pdf'` when uploading PDFs
+8. **Error Handling**: Gracefully handle B2 not being configured vs actual upload/download errors
+
+**Testing Strategy:**
+
+- Storage service tests check `isConfigured()` and skip B2 operations if not configured
+- Unit tests don't require actual B2 credentials
+- Integration tests can use B2 test bucket or mock the storage service
+- Tests should verify temp file cleanup happens even on error
+
+**Backblaze B2 Specifics:**
+
+- Endpoint format: `https://s3.{region}.backblazeb2.com`
+- Region examples: `us-west-004`, `us-east-005`, `eu-central-003`
+- Get credentials from: https://secure.backblaze.com/app_keys.htm
+- Buckets must be created via B2 web console before use
+- B2 pricing: $0.005/GB/month storage, $0.01/GB download
+
 ## Resources and References
 
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
@@ -2095,3 +2361,5 @@ async sendInvoiceEmail(options: SendInvoiceEmailOptions): Promise<boolean> {
 - [Functional Programming in TypeScript](https://gcanti.github.io/fp-ts/)
 - [Puppeteer Documentation](https://pptr.dev/)
 - [Resend Documentation](https://resend.com/docs)
+- [AWS SDK v3 for JavaScript](https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/)
+- [Backblaze B2 S3-Compatible API](https://www.backblaze.com/b2/docs/s3_compatible_api.html)

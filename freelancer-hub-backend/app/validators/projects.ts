@@ -50,13 +50,3 @@ export const updateProjectMemberValidator = vine.compile(
     hourlyRate: vine.number().min(0.01).optional(),
   })
 )
-
-/**
- * @deprecated Use updateProjectMemberValidator instead
- * Validator for updating a project member's hourly rate
- */
-export const updateProjectMemberRateValidator = vine.compile(
-  vine.object({
-    hourlyRate: vine.number().min(0.01).optional(),
-  })
-)

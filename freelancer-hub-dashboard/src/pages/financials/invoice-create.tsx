@@ -16,7 +16,6 @@ import {
   Spin,
   Radio,
   DatePicker,
-  notification,
 } from "antd";
 import {
   PlusOutlined,
@@ -28,9 +27,11 @@ import {
 import { useNavigate, useParams } from "react-router";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { ResponsiveContainer } from "../../components/responsive";
-import { Api } from "../../services/api";
+import { Api, Customer, Project } from "../../services/api";
 import dayjs from "dayjs";
 import { getErrorMessage } from "../../utils/error";
+import { useNotification } from "../../hooks/useNotification";
+import { useList } from "@refinedev/core";
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -70,14 +71,9 @@ export const InvoiceCreate: React.FC = () => {
   const navigate = useNavigate();
   const { slug } = useParams();
   const [form] = Form.useForm();
-  const [notificationApi, contextHolder] = notification.useNotification();
-
+  const { notificationApi } = useNotification();
   // State
   const [isLoading, setIsLoading] = useState(false);
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [loadingCustomers, setLoadingCustomers] = useState(false);
-  const [loadingProjects, setLoadingProjects] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(
     null
   );
@@ -97,44 +93,45 @@ export const InvoiceCreate: React.FC = () => {
   const [taxValue, setTaxValue] = useState<number>(0);
   const [discountValue, setDiscountValue] = useState<number>(0);
 
-  // Fetch customers and projects on mount
-  useEffect(() => {
-    fetchCustomers();
-    fetchProjects();
-  }, []);
+  const {
+    result: customers,
+    query: { isLoading: isLoadingCustomers },
+  } = useList<Customer>({
+    resource: "customers",
+    pagination: { pageSize: 100 },
+    filters: [
+      {
+        field: "isActive",
+        operator: "eq",
+        value: true,
+      },
+    ],
+  });
+
+  const {
+    result: projects,
+    query: { isLoading: isLoadingProjects },
+  } = useList<Project>({
+    resource: "projects",
+    pagination: { pageSize: 100 },
+    filters: selectedCustomerId
+      ? [
+          {
+            field: "customerId",
+            operator: "eq",
+            value: selectedCustomerId,
+          },
+        ]
+      : [],
+    queryOptions: {
+      enabled: !!selectedCustomerId,
+    },
+  });
 
   // Regenerate line items when project configs change
   useEffect(() => {
     regenerateAutoLineItems();
   }, [projectConfigs]);
-
-  const fetchCustomers = async () => {
-    setLoadingCustomers(true);
-    try {
-      const response = await Api.getCustomers({ isActive: true });
-      setCustomers(response.data.data || []);
-    } catch {
-      notificationApi.error({
-        message: "Failed to load customers",
-      });
-    } finally {
-      setLoadingCustomers(false);
-    }
-  };
-
-  const fetchProjects = async () => {
-    setLoadingProjects(true);
-    try {
-      const response = await Api.getProjects();
-      setProjects(response.data.data || []);
-    } catch {
-      notificationApi.error({
-        message: "Failed to load projects",
-      });
-    } finally {
-      setLoadingProjects(false);
-    }
-  };
 
   const calculateDateRange = (duration: string) => {
     const now = dayjs();
@@ -238,7 +235,7 @@ export const InvoiceCreate: React.FC = () => {
   };
 
   const handleAddProject = (projectId: number) => {
-    const project = projects.find((p) => p.id === projectId);
+    const project = projects.data.find((p) => p.id === projectId);
     if (!project) return;
 
     // Check if project already added
@@ -462,7 +459,7 @@ export const InvoiceCreate: React.FC = () => {
       notificationApi.success({
         message: "Invoice created successfully",
       });
-      navigate(`/tenants/${slug}/invoices`);
+      navigate(`/tenants/${slug}/financials/invoices`);
     } catch (error) {
       notificationApi.error({
         message: getErrorMessage(error),
@@ -552,7 +549,7 @@ export const InvoiceCreate: React.FC = () => {
       title: "",
       key: "action",
       width: "5%",
-      render: (_: any, record: LineItem) => (
+      render: (_, record: LineItem) => (
         <Button
           type="text"
           danger
@@ -564,16 +561,15 @@ export const InvoiceCreate: React.FC = () => {
     },
   ];
 
-  const subtotal = calculateSubtotal();
+  // const subtotal = calculateSubtotal();
 
   // Filter projects by selected customer
   const filteredProjects = selectedCustomerId
-    ? projects.filter((p) => p.customerId === selectedCustomerId)
-    : projects;
+    ? projects.data.filter((p) => p.customerId === selectedCustomerId)
+    : projects.data;
 
   return (
     <ResponsiveContainer maxWidth="xl">
-      {contextHolder}
       <Card
         title={
           <Space>
@@ -596,7 +592,7 @@ export const InvoiceCreate: React.FC = () => {
                 <Select
                   placeholder="Select a customer"
                   size="large"
-                  loading={loadingCustomers}
+                  loading={isLoadingCustomers}
                   showSearch
                   optionFilterProp="children"
                   onChange={handleCustomerChange}
@@ -605,7 +601,7 @@ export const InvoiceCreate: React.FC = () => {
                       .toLowerCase()
                       .includes(input.toLowerCase())
                   }
-                  options={customers.map((customer) => ({
+                  options={customers.data.map((customer) => ({
                     value: customer.id,
                     label: customer.company
                       ? `${customer.name} (${customer.company})`
@@ -837,7 +833,7 @@ export const InvoiceCreate: React.FC = () => {
           <Select
             placeholder="Add a project..."
             size="large"
-            loading={loadingProjects}
+            loading={isLoadingProjects}
             showSearch
             style={{ width: "100%", marginBottom: 24 }}
             optionFilterProp="children"
@@ -911,7 +907,7 @@ export const InvoiceCreate: React.FC = () => {
                         : `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                     }
                     parser={(value) =>
-                      Number(value!.replace(/[%\$\s,]|(,*)/g, "")) as 0
+                      Number(value!.replace(/[%$\s,]|(,*)/g, "")) as 0
                     }
                     placeholder={
                       taxType === "percentage"
@@ -951,7 +947,7 @@ export const InvoiceCreate: React.FC = () => {
                         : `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                     }
                     parser={(value) =>
-                      Number(value!.replace(/[%\$\s,]|(,*)/g, "")) as 0
+                      Number(value!.replace(/[%$\s,]|(,*)/g, "")) as 0
                     }
                     placeholder={
                       discountType === "percentage"

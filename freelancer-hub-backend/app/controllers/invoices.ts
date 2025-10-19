@@ -401,8 +401,7 @@ export default class InvoicesController {
    * Update an existing invoice
    * Only draft invoices can be updated
    */
-  async update({ tenant, auth, params, request, response }: HttpContext) {
-    const user = auth.getUserOrFail()
+  async update({ tenant, params, request, response }: HttpContext) {
     const data = await request.validateUsing(updateInvoiceValidator)
 
     // Load existing invoice
@@ -1038,7 +1037,7 @@ export default class InvoicesController {
     // Permission check: Only Admin/Owner can send invoices
     if (!userRole.canSendInvoices()) {
       return response.forbidden({
-        error: 'Insufficient permissions to send invoices',
+        message: 'Insufficient permissions to send invoices',
       })
     }
 
@@ -1050,9 +1049,9 @@ export default class InvoicesController {
     const data = await request.validateUsing(sendInvoiceValidator)
 
     try {
-      // Generate PDF if not already generated
-      if (!invoice.pdfUrl) {
-        await pdfService.generateInvoicePDF(invoice)
+      // Generate and store PDF in B2 if not already stored
+      if (!invoice.pdfKey) {
+        await pdfService.generateAndStoreInvoicePDF(invoice)
       }
 
       // Send email with new options pattern
@@ -1087,6 +1086,7 @@ export default class InvoicesController {
 
   /**
    * Generate PDF for invoice
+   * Stores PDF in B2 if configured, otherwise streams directly
    */
   async generatePdf({ tenant, userRole, params, response }: HttpContext) {
     // Permission check: Only tenant owners or admin can export PDFs
@@ -1102,6 +1102,10 @@ export default class InvoicesController {
       .firstOrFail()
 
     try {
+      // Generate and store PDF in B2 if configured
+      await pdfService.generateAndStoreInvoicePDF(invoice)
+
+      // Generate PDF buffer for direct response
       const pdfBuffer = await pdfService.generateInvoicePDF(invoice)
 
       // Set response headers for PDF download

@@ -74,12 +74,39 @@ export type RegisterResponse = {
   currentTenantSlug?: string;
 };
 
+// Tenant
+
 // Projects
 export type Project = {
   id: number;
   name: string;
   slug: string;
   tenantId: number;
+  isActive: boolean;
+
+  customerId: number | null;
+
+  description: string | null;
+
+  status: "active" | "archived" | "completed";
+
+  startDate: number | null;
+
+  endDate: number | null;
+
+  budget: number | null;
+
+  createdAt: string;
+
+  updatedAt: string | null;
+
+  tenant?: Tenant;
+
+  customer?: Customer;
+
+  tasks?: Task[];
+
+  projectMembers?: ProjectMember[];
 };
 
 export type CreateProjectPayload = {
@@ -544,4 +571,23 @@ export type DefaultPreferencesResponse = {
     emailEnabled: boolean;
     isMuted: boolean;
   }>;
+};
+
+// Customer
+export type Customer = {
+  id: number;
+  tenantId: number;
+  name: string;
+  email: string;
+  phone: string;
+  company: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
 };

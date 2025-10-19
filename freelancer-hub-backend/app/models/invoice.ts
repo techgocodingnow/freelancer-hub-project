@@ -93,6 +93,10 @@ export default class Invoice extends BaseModel {
   @column()
   declare clientAddress: string | null
 
+  // PDF Storage
+  @column()
+  declare pdfKey: string | null
+
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
 

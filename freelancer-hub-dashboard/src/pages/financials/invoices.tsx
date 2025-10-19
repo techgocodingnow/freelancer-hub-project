@@ -14,7 +14,6 @@ import {
   Descriptions,
   Spin,
   Progress,
-  message,
 } from "antd";
 import {
   PlusOutlined,
@@ -25,12 +24,7 @@ import {
   FilePdfOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
-import {
-  useList,
-  useDelete,
-  useCustomMutation,
-  useNavigation,
-} from "@refinedev/core";
+import { useList, useDelete, useCustomMutation } from "@refinedev/core";
 import { useNavigate, useParams } from "react-router";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { ResponsiveContainer } from "../../components/responsive";

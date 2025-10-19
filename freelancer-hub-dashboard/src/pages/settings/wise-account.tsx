@@ -10,7 +10,6 @@ import {
   Alert,
   Descriptions,
   Modal,
-  message,
   Divider,
   Tag,
 } from "antd";
@@ -23,12 +22,11 @@ import {
   CloseCircleOutlined,
 } from "@ant-design/icons";
 import { useCustom, useCustomMutation } from "@refinedev/core";
-import { useParams } from "react-router";
 import { useIsMobile } from "../../hooks/useMediaQuery";
 import { ResponsiveContainer } from "../../components/responsive";
 import { tokens } from "../../theme/tokens";
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Paragraph } = Typography;
 
 interface WiseAccountInfo {
   recipientId: number | null;
