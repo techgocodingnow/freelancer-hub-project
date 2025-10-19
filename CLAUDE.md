@@ -1595,6 +1595,68 @@ try {
 
 Always use transactions for operations that create multiple related records to ensure data consistency.
 
+**CRITICAL: Transaction Pattern for Model Instance Updates with Foreign Keys**
+
+When updating model instances within a transaction where the update references records created in the same transaction (foreign key relationships), you MUST use `useTransaction()` on the model instance:
+
+```typescript
+// INCORRECT - save() doesn't accept options parameter directly
+async accept(userId: number, options?: { client?: any }): Promise<void> {
+  this.status = 'accepted'
+  this.acceptedBy = userId  // FK references user created in same transaction
+  await this.save(options)   // This will NOT use the transaction!
+}
+
+// CORRECT - use useTransaction() before save()
+async accept(userId: number, options?: { client?: any }): Promise<void> {
+  this.status = 'accepted'
+  this.acceptedBy = userId
+
+  if (options?.client) {
+    this.useTransaction(options.client)  // Attach transaction to model instance
+  }
+
+  await this.save()  // Now save() will use the transaction
+}
+
+// Usage in controller
+const trx = await db.transaction()
+
+try {
+  const user = await User.create({ email, password }, { client: trx })
+
+  // Invitation update must happen in same transaction
+  // because acceptedBy references the user.id
+  await invitation.accept(user.id, { client: trx })
+
+  await trx.commit()
+} catch (error) {
+  await trx.rollback()
+  throw error
+}
+```
+
+**Why this matters:**
+- Foreign key constraints check the committed database, not the transaction context
+- If you don't use `useTransaction()`, the FK validation fails because the referenced record doesn't exist yet
+- This pattern applies to ANY model instance method that updates FK fields within a transaction
+
+**Pattern for model methods:**
+```typescript
+async methodName(params: any, options?: { client?: any }): Promise<void> {
+  // 1. Update instance fields
+  this.field = value
+
+  // 2. Attach transaction if provided
+  if (options?.client) {
+    this.useTransaction(options.client)
+  }
+
+  // 3. Save - will now use the transaction
+  await this.save()
+}
+```
+
 **5. Service layer pattern for business logic:**
 
 ```typescript
