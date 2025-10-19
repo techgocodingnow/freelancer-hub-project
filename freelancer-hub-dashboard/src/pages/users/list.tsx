@@ -13,6 +13,7 @@ import {
   message,
   Button,
   Tooltip,
+  theme,
 } from "antd";
 import {
   UserOutlined,
@@ -43,6 +44,7 @@ const { confirm } = Modal;
 
 export const UserList: React.FC = () => {
   const { data: identity } = useGetIdentity();
+  const { token } = theme.useToken();
   const [users, setUsers] = useState<TenantUser[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(false);
@@ -337,7 +339,10 @@ export const UserList: React.FC = () => {
                 <Card
                   key={invitation.id}
                   size="small"
-                  style={{ backgroundColor: "#fafafa" }}
+                  style={{
+                    backgroundColor: token.colorBgContainer,
+                    borderColor: token.colorBorderSecondary,
+                  }}
                 >
                   <div
                     style={{
